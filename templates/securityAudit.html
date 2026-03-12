@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Güvenlik ve Denetim | Nebula Net{% endblock %}
+
+{% block extra_css %}
+<!-- Security CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/security.css') }}">
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="security-content">
+    <div class="content-header" style="margin-bottom: 30px;">
+        <div class="content-title">
+            SECURITY & AUDIT COMMAND
+            <span class="status-pill pill-critical" style="margin-left: 15px;"><i class="fas fa-radiation"></i> 8
+                THREATS DETECTED</span>
+        </div>
+    </div>
+
+    <!-- Grid Container -->
+    <div class="grid-container">
+        <!-- A. Zafiyet Panosu - Isı Haritası -->
+        <div class="glass-card">
+            <div class="card-header" style="margin-bottom: 20px;">
+                <h3 style="font-size: 14px; letter-spacing: 1px;"><i class="fas fa-fire-alt"
+                        style="color: var(--critical-red);"></i> SECTOR RISK HEATMAP</h3>
+            </div>
+            <div class="heatmap-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                <div class="heatmap-cell"
+                    style="background: rgba(255, 75, 43, 0.1); border: 1px solid var(--critical-red); border-radius: 8px; padding: 15px; text-align: center;">
+                    <span style="font-size: 10px; color: var(--text-muted); display: block;">FINANCE</span>
+                    <span style="font-size: 20px; font-weight: 700; color: var(--critical-red);">94%</span>
+                </div>
+                <div class="heatmap-cell"
+                    style="background: rgba(243, 156, 18, 0.1); border: 1px solid var(--warning-orange); border-radius: 8px; padding: 15px; text-align: center;">
+                    <span style="font-size: 10px; color: var(--text-muted); display: block;">INFRA</span>
+                    <span style="font-size: 20px; font-weight: 700; color: var(--warning-orange);">78%</span>
+                </div>
+                <div class="heatmap-cell"
+                    style="background: rgba(0, 242, 255, 0.05); border: 1px solid var(--neon-cyan); border-radius: 8px; padding: 15px; text-align: center;">
+                    <span style="font-size: 10px; color: var(--text-muted); display: block;">MGMT</span>
+                    <span style="font-size: 20px; font-weight: 700; color: var(--neon-cyan);">12%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- A. Zafiyet Panosu - Risk Profili -->
+        <div class="glass-card">
+            <div class="card-header" style="margin-bottom: 20px;">
+                <h3 style="font-size: 14px; letter-spacing: 1px;"><i class="fas fa-skull"
+                        style="color: var(--text-muted);"></i> TOP ADVERSARIES</h3>
+            </div>
+            <div class="cve-list" id="riskProfileList" style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="loading-placeholder">SYNCHRONIZING...</div>
+            </div>
+        </div>
+
+        <!-- A. Zafiyet Panosu - Skor Göstergesi -->
+        <div class="security-card">
+            <div class="card-header">
+                <h3><i class="fas fa-chart-pie"></i> Güvenlik Skoru</h3>
+                <span style="font-size: 12px;">Genel Durum</span>
+            </div>
+            <div class="score-container">
+                <div class="score-gauge">
+                    <canvas id="securityGauge" width="180" height="180"></canvas>
+                    <div class="score-text">
+                        <div class="score-number" id="globalScore">82</div>
+                        <div class="score-label">/100</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- B. Olay Günlüğü - İkili Grid -->
+    <div class="grid-container" style="grid-template-columns: 1fr 1.5fr;">
+        <!-- Saldırı Haritası -->
+        <div class="security-card">
+            <div class="card-header">
+                <h3><i class="fas fa-globe"></i> Tehdit Giriş Noktaları</h3>
+                <span class="live-badge"><i class="fas fa-circle"></i> CANLI</span>
+            </div>
+            <div class="attack-map">
+                <div class="map-placeholder">
+                    <div class="attack-dot" style="top: 30%; left: 20%;"></div>
+                    <div class="attack-dot" style="top: 60%; left: 45%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kritik Alarm Listesi -->
+        <div class="security-card">
+            <div class="card-header">
+                <h3><i class="fas fa-bell"></i> Tehdit Geçmişi</h3>
+                <div class="alarm-filters" id="alertHistory">
+                    <!-- Data populated by API -->
+                    <div class="loading-placeholder">Alarmlar çekiliyor...</div>
+                </div>
+            </div>
+            <div class="alarm-list" id="alarmListBody">
+                <!-- Rows injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- C. Tarama Sonuçları -->
+    <div class="glass-card" style="padding: 0; margin-top: 30px;">
+        <div class="card-header" style="padding: 24px; border-bottom: 1px solid var(--border-glass);">
+            <h3 style="font-size: 14px; letter-spacing: 1px;"><i class="fas fa-microchip"
+                    style="color: var(--neon-cyan);"></i> AUTOMATED DIAGNOSTIC LOGS</h3>
+        </div>
+        <div class="table-responsive" style="padding: 24px;">
+            <table class="modern-table" id="scanResultsTable">
+                <thead>
+                    <tr>
+                        <th>TIMESTAMP</th>
+                        <th>TARGET NODE</th>
+                        <th>OPEN PORTS</th>
+                        <th>DIAGNOSTIC FINDING</th>
+                        <th>RISK LEVEL</th>
+                    </tr>
+                </thead>
+                <tbody id="scanResultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Raporlama ve Aksiyon -->
+    <div class="security-card">
+        <div class="card-header">
+            <h3><i class="fas fa-file-export"></i> Denetim Raporları</h3>
+        </div>
+        <div class="report-buttons" style="flex-direction: column; gap: 10px;">
+            <button class="report-btn pdf" style="width: 100%;">
+                <i class="fas fa-file-pdf"></i> Son Denetim Özeti
+            </button>
+            <button class="report-btn" style="width: 100%;">
+                <i class="fas fa-file-excel"></i> CSV Olarak Dışa Aktar
+            </button>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ============================================================
+    // Security & Audit UI Observer
+    // ============================================================
+
+    window.refreshSecurityUI = function (state) {
+        if (!state) return;
+
+        // 1. Render Risk Profile (from state.devices)
+        renderRiskProfile(state.devices);
+
+        // 2. Render Audit Logs (Threat History)
+        renderAuditLogs(state.auditLogs);
+
+        // 3. Render Scan Results
+        renderScanResults(state.scans);
+
+        // 4. Update Global Indicators & Gauge
+        updateGlobalSecurityIndicators(state);
+    };
+
+    function renderRiskProfile(devices) {
+        const list = document.getElementById('riskProfileList');
+        if (!list) return;
+
+        // Sort by risk level descending
+        const topRisky = [...devices].sort((a, b) => b.risk_level - a.risk_level).slice(0, 5);
+
+        list.innerHTML = topRisky.map(item => `
+            <div class="cve-item">
+                <div class="cve-header">
+                    <span class="cve-code">${item.hostname}</span>
+                    <span class="cve-score" style="color: ${item.risk_level > 70 ? '#FF4B5C' : '#FFB74D'};">
+                        ${item.risk_level}% RISK
+                    </span>
+                </div>
+                <div class="cve-desc">${item.ip_address} | ${item.type}</div>
+                <div class="cve-solution">Status: <span style="color:var(--neon-cyan)">${item.status}</span></div>
+            </div>
+        `).join('');
+    }
+
+    function renderAuditLogs(logs) {
+        const body = document.getElementById('alarmListBody');
+        if (!body) return;
+
+        body.innerHTML = logs.slice(0, 8).map(log => {
+            const severityClass = (log.action === 'isolate') ? 'critical' : 'warning';
+            let detailObj = {};
+            try { detailObj = JSON.parse(log.detail); } catch (e) { }
+
+            return `
+                <div class="alarm-item">
+                    <span class="alarm-severity severity-${severityClass}"></span>
+                    <div class="alarm-content">
+                        <div class="alarm-time">${log.timestamp}</div>
+                        <div class="alarm-desc">${log.action.toUpperCase()} - ${log.target_id}</div>
+                        <div class="alarm-ips">Operator: ${log.operator} | Type: ${log.target_type}</div>
+                    </div>
+                    <button class="alarm-action" onclick="alert('Action: ${log.action}\\nTarget: ${log.target_id}\\nDetail: ${log.detail}')">INFO</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderScanResults(scans) {
+        const body = document.getElementById('scanResultsBody');
+        if (!body) return;
+
+        body.innerHTML = scans.map(scan => {
+            let cveBadges = "";
+            if (scan.cve_ids_found) {
+                try {
+                    const cves = JSON.parse(scan.cve_ids_found);
+                    if (Array.isArray(cves)) {
+                        cveBadges = cves.map(id => `<span class="status-pill pill-critical" style="font-size:9px; margin:2px;">${id}</span>`).join('');
+                    }
+                } catch (e) { }
+            }
+
+            return `
+                <tr>
+                    <td style="color: var(--text-muted); font-size: 12px;">${scan.scan_date}</td>
+                    <td><strong style="color: white;">${scan.hostname}</strong></td>
+                    <td style="color: var(--neon-cyan); font-family: monospace;">${scan.open_ports}</td>
+                    <td style="font-size: 13px;">
+                        ${scan.vulnerabilities_found}
+                        <div style="margin-top:5px;">${cveBadges}</div>
+                    </td>
+                    <td><span class="status-pill ${scan.risk_level_detected > 70 ? 'pill-critical' : 'pill-warning'}">${scan.risk_level_detected}%</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function updateGlobalSecurityIndicators(state) {
+        // 1. Threat Detection Counter (Critical Alerts)
+        const criticalCount = state.alerts.filter(a => a.severity === 'critical').length;
+        const threatBadge = document.querySelector('.status-pill.pill-critical');
+        if (threatBadge) {
+            threatBadge.innerHTML = `<i class="fas fa-radiation"></i> ${criticalCount} THREATS DETECTED`;
+        }
+
+        // 2. Global Security Score (100 - Avg Risk)
+        const devicesWithRisk = state.devices.filter(d => d.risk_level !== undefined);
+        const avgRisk = devicesWithRisk.length > 0
+            ? devicesWithRisk.reduce((acc, d) => acc + d.risk_level, 0) / devicesWithRisk.length
+            : 0;
+
+        const score = Math.max(0, Math.round(100 - avgRisk));
+        const scoreEl = document.getElementById('globalScore');
+        if (scoreEl) scoreEl.textContent = score;
+
+        // 3. Update Gauge Chart
+        if (window.securityChart) {
+            window.securityChart.data.datasets[0].data = [score, 100 - score];
+            // Change color based on score
+            let color = '#00f2ff'; // Cyan (Safe)
+            if (score < 40) color = '#FF4B5C'; // Red (Critical)
+            else if (score < 75) color = '#FFB74D'; // Orange (Warning)
+
+            window.securityChart.data.datasets[0].backgroundColor[0] = color;
+            window.securityChart.update();
+        }
+    }
+
+    // Initialize Gauge Chart on DOM Load
+    document.addEventListener('DOMContentLoaded', () => {
+        const ctx = document.getElementById('securityGauge').getContext('2d');
+        window.securityChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [100, 0],
+                    backgroundColor: ['#00f2ff', 'rgba(255, 255, 255, 0.05)'],
+                    borderWidth: 0,
+                    borderRadius: 50
+                }]
+            },
+            options: {
+                cutout: '75%',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+
+        // Subscribe to appStore
+        if (window.appStore) {
+            appStore.subscribe(window.refreshSecurityUI);
+            // Immediate first render if data exists
+            if (appStore.state.devices.length > 0) {
+                window.refreshSecurityUI(appStore.state);
+            }
+        }
+    });
+</script>
+{% endblock %}

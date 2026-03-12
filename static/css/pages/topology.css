@@ -1,0 +1,370 @@
+/* Topoloji İçerik */
+.topology-content {
+    padding: 0;
+    position: relative;
+}
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.content-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #FFFFFF;
+}
+
+.live-badge {
+    background: rgba(0, 230, 118, 0.15);
+    color: #00E676;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.live-badge i {
+    font-size: 10px;
+}
+
+.legend {
+    display: flex;
+    gap: 20px;
+    background: #151921;
+    padding: 8px 16px;
+    border-radius: 30px;
+    border: 1px solid rgba(0, 209, 255, 0.1);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.legend-line {
+    width: 20px;
+    height: 2px;
+}
+
+.legend-line.active {
+    background: #00D1FF;
+    position: relative;
+    overflow: hidden;
+}
+
+.legend-line.active::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: white;
+    border-radius: 50%;
+    animation: flow 2s linear infinite;
+}
+
+.legend-line.down {
+    background: #FF4B5C;
+    border: 1px dashed #FF4B5C;
+    height: 0;
+}
+
+@keyframes flow {
+    0% {
+        left: -5px;
+        opacity: 1;
+    }
+
+    100% {
+        left: 100%;
+        opacity: 0;
+    }
+}
+
+/* Topoloji Haritası - Internal Grid only */
+.topology-map {
+    height: calc(100vh - 200px);
+    position: relative;
+    overflow: auto;
+}
+
+.map-container {
+    position: relative;
+    min-width: 800px;
+    min-height: 500px;
+    height: 100%;
+    width: 100%;
+}
+
+/* Cihaz İkonları */
+.device-icon {
+    position: absolute;
+    width: 70px;
+    height: 70px;
+    background: #0B0E14;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    z-index: 5;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+.device-icon:hover {
+    border-color: #00D1FF;
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 209, 255, 0.3);
+}
+
+.device-icon.selected {
+    border-color: #00D1FF;
+    box-shadow: 0 0 0 4px rgba(0, 209, 255, 0.2);
+}
+
+.device-icon.router {
+    border-color: #00D1FF;
+}
+
+.device-icon.switch {
+    border-color: #FFB74D;
+}
+
+.device-icon.server {
+    border-color: #00E676;
+}
+
+.device-icon.pc {
+    border-color: #A0A6B0;
+}
+
+.device-icon.camera {
+    border-color: #FF4B5C;
+}
+
+.device-icon i {
+    font-size: 24px;
+}
+
+.device-icon.router i {
+    color: #00D1FF;
+}
+
+.device-icon.switch i {
+    color: #FFB74D;
+}
+
+.device-icon.server i {
+    color: #00E676;
+}
+
+.device-icon.pc i {
+    color: #A0A6B0;
+}
+
+.device-icon.camera i {
+    color: #FF4B5C;
+}
+
+.device-name {
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.device-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
+.status-up {
+    background: #00E676;
+}
+
+.status-down {
+    background: #FF4B5C;
+}
+
+.status-warning {
+    background: #FFB74D;
+}
+
+/* Bağlantı Çizgileri */
+.connection {
+    position: absolute;
+    background: transparent;
+    z-index: 1;
+}
+
+.line {
+    position: absolute;
+    height: 2px;
+    background: #00D1FF;
+    transform-origin: 0 0;
+    box-shadow: 0 0 10px rgba(0, 209, 255, 0.3);
+}
+
+.line.down {
+    background: #FF4B5C;
+    box-shadow: 0 0 10px rgba(255, 75, 92, 0.3);
+    border: 1px dashed #FF4B5C;
+    height: 0;
+}
+
+.flow-point {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+    filter: blur(1px);
+    animation: flow 3s linear infinite;
+    z-index: 2;
+}
+
+/* Side Drawer - Logic and sizing only */
+.drawer-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.drawer-header h3 {
+    font-size: 20px;
+    color: #FFFFFF;
+}
+
+.close-drawer {
+    background: none;
+    border: none;
+    color: #A0A6B0;
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close-drawer:hover {
+    color: #00D1FF;
+}
+
+.device-detail-icon {
+    width: 80px;
+    height: 80px;
+    background: #0B0E14;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    border: 2px solid #00D1FF;
+}
+
+.device-detail-icon i {
+    font-size: 40px;
+    color: #00D1FF;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.detail-label {
+    color: #A0A6B0;
+    font-size: 14px;
+}
+
+.detail-value {
+    color: #FFFFFF;
+    font-weight: 600;
+}
+
+.port-list {
+    margin-top: 20px;
+}
+
+.port-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background: #0B0E14;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.port-name {
+    color: #00D1FF;
+    font-weight: 600;
+}
+
+.port-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 8px;
+}
+
+.performance-chart {
+    margin-top: 20px;
+    padding: 16px;
+    background: #0B0E14;
+    border-radius: 16px;
+}
+
+.chart-container {
+    width: 100%;
+    height: 100px;
+    margin-top: 10px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .topology-map {
+        padding: 20px 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .side-drawer {
+        width: 100%;
+    }
+
+    .legend {
+        display: none;
+    }
+}

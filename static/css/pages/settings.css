@@ -1,0 +1,582 @@
+/* Settings İçerik */
+.settings-content {
+    flex: 1;
+    padding: 24px 32px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #00D1FF #151921;
+}
+
+.settings-content::-webkit-scrollbar {
+    width: 5px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+    background: #151921;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+    background-color: #00D1FF;
+    border-radius: 20px;
+}
+
+/* Header */
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.content-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #FFFFFF;
+}
+
+.version-badge {
+    background: #151921;
+    border: 1px solid rgba(0, 209, 255, 0.2);
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.version-badge i {
+    color: #00D1FF;
+}
+
+/* Ana Settings Grid */
+.settings-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 24px;
+}
+
+/* Sol İç Menü (Dikey Tab) */
+.settings-menu {
+    background-color: #151921;
+    border-radius: 24px;
+    padding: 20px;
+    border: 1px solid rgba(0, 209, 255, 0.05);
+    height: fit-content;
+}
+
+.menu-group {
+    margin-bottom: 16px;
+}
+
+.menu-group-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #5A6372;
+    margin-bottom: 8px;
+    padding-left: 12px;
+}
+
+.settings-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    color: #E0E0E0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 2px;
+}
+
+.settings-menu-item:hover {
+    background: rgba(0, 209, 255, 0.1);
+    color: #00D1FF;
+}
+
+.settings-menu-item.active {
+    background: rgba(0, 209, 255, 0.15);
+    color: #00D1FF;
+    border-left: 3px solid #00D1FF;
+}
+
+.settings-menu-item i {
+    width: 20px;
+    font-size: 16px;
+}
+
+.menu-badge {
+    margin-left: auto;
+    background: #0B0E14;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    color: #A0A6B0;
+}
+
+/* Ana Alan - Form Kartı */
+.settings-form-card {
+    background-color: #151921;
+    border-radius: 24px;
+    padding: 30px;
+    border: 1px solid rgba(0, 209, 255, 0.05);
+}
+
+.form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.form-header h2 {
+    font-size: 20px;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-header h2 i {
+    color: #00D1FF;
+}
+
+.form-header .section-desc {
+    color: #A0A6B0;
+    font-size: 13px;
+}
+
+/* Form Elemanları */
+.form-group {
+    margin-bottom: 24px;
+}
+
+.form-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #E0E0E0;
+}
+
+.form-label i {
+    color: #00D1FF;
+    font-size: 14px;
+}
+
+.form-input {
+    width: 100%;
+    background: #0B0E14;
+    border: 1px solid #2A2F3A;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #FFFFFF;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #00D1FF;
+    box-shadow: 0 0 0 3px rgba(0, 209, 255, 0.1);
+}
+
+.form-input::placeholder {
+    color: #5A6372;
+}
+
+.form-select {
+    width: 100%;
+    background: #0B0E14;
+    border: 1px solid #2A2F3A;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #FFFFFF;
+    font-size: 14px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2300D1FF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: #00D1FF;
+}
+
+/* Toggle Switch */
+.toggle-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+}
+
+.toggle-label {
+    font-size: 14px;
+    color: #E0E0E0;
+}
+
+.toggle-desc {
+    font-size: 12px;
+    color: #5A6372;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 26px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #2A2F3A;
+    transition: .3s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #A0A6B0;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: #00D1FF;
+}
+
+input:checked+.slider:before {
+    transform: translateX(26px);
+    background-color: #FFFFFF;
+}
+
+/* API Anahtarı */
+.api-key-group {
+    background: #0B0E14;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.api-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.api-name {
+    font-weight: 600;
+    color: #FFFFFF;
+}
+
+.api-status {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 20px;
+}
+
+.api-status.active {
+    background: rgba(0, 230, 118, 0.15);
+    color: #00E676;
+}
+
+.api-status.inactive {
+    background: rgba(255, 75, 92, 0.15);
+    color: #FF4B5C;
+}
+
+.api-key-input {
+    display: flex;
+    gap: 8px;
+}
+
+.api-key-input input {
+    flex: 1;
+    background: #151921;
+    border: 1px solid #2A2F3A;
+    border-radius: 8px;
+    padding: 10px;
+    color: #00D1FF;
+    font-family: monospace;
+}
+
+.api-btn {
+    background: #151921;
+    border: 1px solid #2A2F3A;
+    color: #E0E0E0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.api-btn:hover {
+    border-color: #00D1FF;
+    color: #00D1FF;
+}
+
+/* Kullanıcı Yönetimi */
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.user-table th {
+    text-align: left;
+    padding: 12px 8px;
+    color: #A0A6B0;
+    font-weight: 500;
+    font-size: 12px;
+    border-bottom: 1px solid #2A2F3A;
+}
+
+.user-table td {
+    padding: 12px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.user-role {
+    background: #0B0E14;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    display: inline-block;
+}
+
+.role-admin {
+    color: #00D1FF;
+}
+
+.role-editor {
+    color: #00E676;
+}
+
+.role-viewer {
+    color: #A0A6B0;
+}
+
+.user-actions i {
+    color: #A0A6B0;
+    margin: 0 4px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.user-actions i:hover {
+    color: #00D1FF;
+}
+
+/* Backup Bölümü */
+.backup-list {
+    margin-top: 20px;
+}
+
+.backup-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: #0B0E14;
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+.backup-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.backup-info i {
+    color: #00D1FF;
+    font-size: 20px;
+}
+
+.backup-details h4 {
+    font-size: 14px;
+    color: #FFFFFF;
+    margin-bottom: 4px;
+}
+
+.backup-details span {
+    font-size: 11px;
+    color: #5A6372;
+}
+
+.backup-size {
+    font-weight: 600;
+    color: #00D1FF;
+}
+
+.backup-actions button {
+    background: none;
+    border: 1px solid #2A2F3A;
+    color: #E0E0E0;
+    padding: 6px 12px;
+    border-radius: 20px;
+    margin-left: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.backup-actions button:hover {
+    border-color: #00D1FF;
+    color: #00D1FF;
+}
+
+/* Kaydet Butonu */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 16px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.save-btn {
+    background: #00D1FF;
+    color: #0B0E14;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.save-btn:hover {
+    background: #00E676;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 209, 255, 0.2);
+}
+
+.cancel-btn {
+    background: transparent;
+    color: #A0A6B0;
+    border: 1px solid #2A2F3A;
+    padding: 14px 32px;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+    border-color: #FF4B5C;
+    color: #FF4B5C;
+}
+
+/* Alt Bilgi */
+.footer-info {
+    margin-top: 24px;
+    padding: 20px;
+    background: #151921;
+    border-radius: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid rgba(0, 209, 255, 0.05);
+}
+
+.version-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.version-tag {
+    background: #0B0E14;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-size: 12px;
+    color: #00D1FF;
+}
+
+.license-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.license-badge {
+    background: rgba(0, 230, 118, 0.15);
+    color: #00E676;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-size: 12px;
+}
+
+.update-btn {
+    background: none;
+    border: 1px solid #00D1FF;
+    color: #00D1FF;
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.update-btn:hover {
+    background: #00D1FF;
+    color: #0B0E14;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: absolute;
+        height: 100%;
+    }
+
+    .footer-info {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+
+    .version-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+}

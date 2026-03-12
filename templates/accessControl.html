@@ -1,0 +1,478 @@
+{% extends "base.html" %}
+
+{% block title %}Erişim Kontrolü | Nebula Net{% endblock %}
+
+{% block extra_css %}
+<!-- Access Control CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/access.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="access-content">
+    <div class="content-header">
+        <div class="content-title">
+            Erişim Kontrolü
+            <span style="font-size: 14px; color: #00D1FF; margin-left: 10px;">Politika Yönetimi</span>
+        </div>
+        <button class="new-rule-btn">
+            <i class="fas fa-plus"></i> Yeni Kural Oluştur
+        </button>
+    </div>
+
+    <!-- Üst Panel - Statü Kartları -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="stat-info">
+                <h3>Aktif Kurallar</h3>
+                <div class="stat-value" id="activeRuleCount">0 Kural</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon red">
+                <i class="fas fa-ban"></i>
+            </div>
+            <div class="stat-info">
+                <h3>Engellenen Cihazlar</h3>
+                <div class="stat-value" id="blockedDevicesCount">0 Cihaz</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">
+                <i class="fas fa-wifi"></i>
+            </div>
+            <div class="stat-info">
+                <h3>Misafir Ağı</h3>
+                <div class="stat-value">
+                    <label class="switch">
+                        <input type="checkbox" id="guestWifi" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple" style="background: rgba(155, 89, 182, 0.1); color: #9b59b6;">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="stat-info">
+                <h3>Güvenli Alanlar</h3>
+                <div class="stat-value" id="safeZonesCount">0 Bölge</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid Container - Kural Yönetimi + Karantina -->
+    <div class="grid-container">
+        <!-- Sol: Kural Yönetim Listesi -->
+        <div class="access-card">
+            <div class="card-header">
+                <h3><i class="fas fa-list"></i> Kural Yönetimi</h3>
+                <div class="card-actions">
+                    <span class="priority-badge"><i class="fas fa-arrow-up"></i> Sürükle - Öncelik
+                        Sırala</span>
+                </div>
+            </div>
+            <div class="rule-list" id="ruleList">
+                <!-- Rules will be dynamically populated by window.updateNebulaUI() from store.js -->
+            </div>
+        </div>
+
+        <!-- Sağ: Karantina Bölgesi -->
+        <div class="access-card">
+            <div class="card-header">
+                <h3><i class="fas fa-exclamation-triangle" style="color: #FF4B5C;"></i> Karantina Bölgesi
+                </h3>
+                <span class="priority-badge">12 Cihaz</span>
+            </div>
+            <div class="quarantine-list" id="quarantineList">
+                <div style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;">
+                    <i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Loading isolated nodes...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alt Panel: Zaman Bazlı Erişim -->
+    <div class="access-card" style="margin-top: 20px;">
+        <div class="card-header">
+            <h3><i class="fas fa-calendar-alt"></i> Zaman Bazlı Erişim Planlayıcısı</h3>
+            <span class="priority-badge">Haftalık Program</span>
+        </div>
+        <div class="schedule-container">
+            <div class="schedule-header">
+                <span style="font-size: 13px;">Mesai saatleri dışında Wi-Fi erişimini kısıtla</span>
+                <div class="schedule-days">
+                    <span>Pt</span><span>Sa</span><span>Ça</span><span>Pe</span><span>Cu</span><span>Ct</span><span>Pz</span>
+                </div>
+            </div>
+            <div class="schedule-grid">
+                <div class="schedule-row">
+                    <span class="time-label">00:00</span>
+                    <div class="time-slots">
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                    </div>
+                </div>
+                <div class="schedule-row">
+                    <span class="time-label">04:00</span>
+                    <div class="time-slots">
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                    </div>
+                </div>
+                <div class="schedule-row">
+                    <span class="time-label">08:00</span>
+                    <div class="time-slots">
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                    </div>
+                </div>
+                <div class="schedule-row">
+                    <span class="time-label">12:00</span>
+                    <div class="time-slots">
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                    </div>
+                </div>
+                <div class="schedule-row">
+                    <span class="time-label">16:00</span>
+                    <div class="time-slots">
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                    </div>
+                </div>
+                <div class="schedule-row">
+                    <span class="time-label">20:00</span>
+                    <div class="time-slots">
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot limited"><span class="slot-info">%80 Kısıtlı</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                        <div class="time-slot active"><span class="slot-info">Tam Erişim</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="schedule-legend">
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #00D1FF;"></span>
+                    <span>Tam Erişim</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: linear-gradient(45deg, #FFB74D, #FF8F4A);"></span>
+                    <span>%80 Kısıtlı</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #0B0E14; border: 1px solid #2A2F3A;"></span>
+                    <span>Erişim Yok</span>
+                </div>
+            </div>
+
+            <!-- System Audit Trail -->
+            <div class="access-card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <h3><i class="fas fa-history"></i> SYSTEM AUDIT TRAIL</h3>
+                    <span class="priority-badge">ADMINISTRATIVE ACTIVITY</span>
+                </div>
+                <div style="padding: 10px; max-height: 300px; overflow-y: auto;">
+                    <style>
+                        .audit-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-size: 12px;
+                        }
+
+                        .audit-table th {
+                            text-align: left;
+                            padding: 12px;
+                            color: var(--text-muted);
+                            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                        }
+
+                        .audit-table td {
+                            padding: 12px;
+                            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+                            color: rgba(255, 255, 255, 0.8);
+                        }
+
+                        .audit-badge {
+                            padding: 4px 8px;
+                            border-radius: 4px;
+                            font-size: 10px;
+                            font-weight: 600;
+                        }
+
+                        .audit-badge.mutate {
+                            background: rgba(0, 209, 255, 0.1);
+                            color: #00D1FF;
+                        }
+
+                        .audit-badge.delete {
+                            background: rgba(255, 75, 92, 0.1);
+                            color: #FF4B5C;
+                        }
+                    </style>
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th>TIMESTAMP</th>
+                                <th>OPERATOR</th>
+                                <th>ACTION</th>
+                                <th>RESOURCE</th>
+                                <th>DETAILS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditTrailBody">
+                            <!-- Data injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block scripts %}
+    <script>
+
+        // Sürükle-Bırak işlevselliği
+        const ruleItems = document.querySelectorAll('.rule-item');
+        let dragItem = null;
+
+        ruleItems.forEach(item => {
+            item.addEventListener('dragstart', function (e) {
+                this.classList.add('dragging');
+                dragItem = this;
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            item.addEventListener('dragend', function () {
+                this.classList.remove('dragging');
+                dragItem = null;
+            });
+
+            item.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+
+            item.addEventListener('drop', function (e) {
+                e.preventDefault();
+                if (dragItem && dragItem !== this) {
+                    const ruleList = document.getElementById('ruleList');
+                    const items = [...ruleList.children];
+                    const dragIndex = items.indexOf(dragItem);
+                    const dropIndex = items.indexOf(this);
+
+                    if (dragIndex < dropIndex) {
+                        ruleList.insertBefore(dragItem, this.nextSibling);
+                    } else {
+                        ruleList.insertBefore(dragItem, this);
+                    }
+
+                    // Öncelik sırasını güncelle
+                    items.forEach((item, index) => {
+                        item.dataset.priority = index + 1;
+                    });
+                }
+            });
+        });
+
+        // Yeni Kural butonu - Proaktif oluşturma
+        document.querySelector('.new-rule-btn').addEventListener('click', async function () {
+            const title = prompt("Kural Başlığı:", "Yeni Firewall Kuralı");
+            if (!title) return;
+
+            const action = prompt("Eylem (allow/deny):", "deny");
+            const port = prompt("Hedef Port (örn: 80, 443):", "Any");
+
+            const newRule = {
+                title: title,
+                action: action || 'deny',
+                dest_port: port || 'Any',
+                priority: 50,
+                protocol: 'TCP'
+            };
+
+            await appStore.addRule(newRule);
+        });
+
+        // Misafir ağı toggle
+        const guestWifiToggle = document.getElementById('guestWifi');
+
+        // Initialize from state
+        appStore.subscribe((state) => {
+            if (state.settings && state.settings.guest_wifi_enabled !== undefined) {
+                guestWifiToggle.checked = state.settings.guest_wifi_enabled === 'true';
+            }
+        });
+
+        guestWifiToggle.addEventListener('change', async function (e) {
+            console.log('Misafir ağı ' + (this.checked ? 'açıldı' : 'kapatıldı'));
+            await appStore.updateSettings({ guest_wifi_enabled: this.checked });
+        });
+
+        // Zaman Bazlı Erişim Grid Etkileşimi
+        document.querySelectorAll('.time-slot').forEach(slot => {
+            slot.addEventListener('click', async function () {
+                // Toggle classes: active -> limited -> (none) -> active
+                if (this.classList.contains('active')) {
+                    this.classList.remove('active');
+                    this.classList.add('limited');
+                    this.querySelector('.slot-info').textContent = '%80 Kısıtlı';
+                } else if (this.classList.contains('limited')) {
+                    this.classList.remove('limited');
+                    this.querySelector('.slot-info').textContent = 'Erişim Yok';
+                } else {
+                    this.classList.add('active');
+                    this.querySelector('.slot-info').textContent = 'Tam Erişim';
+                }
+
+                // Persistence: Since the UI grid is global, we save it as a global setting 'access_schedule'
+                const scheduleData = [];
+                document.querySelectorAll('.schedule-row').forEach(row => {
+                    const timeStr = row.querySelector('.time-label').textContent;
+                    const slots = Array.from(row.querySelectorAll('.time-slot')).map(s => {
+                        if (s.classList.contains('active')) return 'full';
+                        if (s.classList.contains('limited')) return 'limited';
+                        return 'none';
+                    });
+                    scheduleData.push({ hour: timeStr, slots: slots });
+                });
+
+                await appStore.updateSettings({ access_schedule: JSON.stringify(scheduleData) });
+            });
+        });
+
+        // ── Audit Trail Synchronization ─────────────────────────────────────────
+        appStore.subscribe((state) => {
+            // Quarantine & Blocked logic
+            const blockedSpan = document.getElementById('blockedDevicesCount');
+            const qList = document.getElementById('quarantineList');
+            if (state.devices) {
+                const isolated = state.devices.filter(d => d.status === 'Isolated');
+                // Update header count if it exists
+                const qHeaderBadge = document.querySelector('.card-header .priority-badge');
+                if (qHeaderBadge && qHeaderBadge.textContent.includes('Cihaz') && qList) {
+                    qHeaderBadge.textContent = isolated.length + ' Cihaz';
+                }
+
+                if (blockedSpan) blockedSpan.textContent = isolated.length + ' Cihaz';
+
+                const szSpan = document.getElementById('safeZonesCount');
+                if (szSpan && state.safe_zones) szSpan.textContent = state.safe_zones.length + ' Bölge';
+
+                if (qList) {
+                    if (isolated.length === 0) {
+                        qList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--neon-cyan);"><i class="fas fa-check-circle"></i> Karantinada cihaz yok</div>';
+                    } else {
+                        qList.innerHTML = isolated.map(d => {
+                            let icon = 'fa-question';
+                            if (d.type === 'pc') icon = 'fa-laptop';
+                            if (d.type === 'mobile') icon = 'fa-mobile-alt';
+                            if (d.type === 'server') icon = 'fa-server';
+                            if (d.type === 'printer') icon = 'fa-print';
+
+                            return `
+                                <div class="quarantine-item">
+                                    <div class="quarantine-header">
+                                        <div class="quarantine-device">
+                                            <i class="fas ${icon}"></i>
+                                            <h4>${d.hostname}</h4>
+                                        </div>
+                                    </div>
+                                    <div class="quarantine-reason">
+                                        <i class="fas fa-exclamation-triangle"></i> Karantina / Otomatik Soyutlama | Risk: ${d.risk_level}
+                                    </div>
+                                    <div class="quarantine-actions">
+                                        <button class="quarantine-btn btn-restore" onclick="appStore.updateDeviceStatus('${d.id}', 'online')"><i class="fas fa-undo-alt"></i> Ağa Geri Al</button>
+                                        <button class="quarantine-btn btn-block" disabled style="opacity:0.5;cursor:not-allowed;"><i class="fas fa-ban"></i> İzole</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
+            }
+
+            // Schedule Init Logic
+            if (state.settings && state.settings.access_schedule && !window._scheduleInitialized) {
+                window._scheduleInitialized = true;
+                try {
+                    const scheduleData = JSON.parse(state.settings.access_schedule);
+                    document.querySelectorAll('.schedule-row').forEach(row => {
+                        const timeStr = row.querySelector('.time-label').textContent;
+                        const rowData = scheduleData.find(s => s.hour === timeStr);
+                        if (rowData) {
+                            const slots = row.querySelectorAll('.time-slot');
+                            rowData.slots.forEach((slotStatus, idx) => {
+                                if (slots[idx]) {
+                                    slots[idx].className = 'time-slot ' + (slotStatus === 'full' ? 'active' : (slotStatus === 'limited' ? 'limited' : ''));
+                                    const span = slots[idx].querySelector('.slot-info');
+                                    if (span) {
+                                        if (slotStatus === 'full') span.textContent = 'Tam Erişim';
+                                        else if (slotStatus === 'limited') span.textContent = '%80 Kısıtlı';
+                                        else span.textContent = 'Erişim Yok';
+                                    }
+                                }
+                            });
+                        }
+                    });
+                } catch (e) { console.error('Schedule parse error:', e); }
+            }
+
+            const auditBody = document.getElementById('auditTrailBody');
+            if (!auditBody || !state.auditLogs) return;
+
+            auditBody.innerHTML = state.auditLogs.map(log => {
+                const date = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const badgeClass = log.action.includes('DELETE') ? 'delete' : 'mutate';
+                return `
+                <tr>
+                    <td style="color: var(--text-muted); font-family: monospace;">${date}</td>
+                    <td style="font-weight: 600;">${log.operator}</td>
+                    <td><span class="audit-badge ${badgeClass}">${log.action}</span></td>
+                    <td><span style="color: var(--neon-cyan); opacity: 0.8;">${log.target_type}</span>: ${log.target_id}</td>
+                    <td style="font-size: 10px; color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${log.detail || '-'}</td>
+                </tr>
+            `;
+            }).join('');
+        });
+
+        // Re-initialize drag and drop for dynamic elements if needed, 
+        // or use event delegation. For this MVP, we rely on appStore.subscribe
+        // which handles ruleList rendering.
+    </script>
+    </script>
+    {% endblock %}

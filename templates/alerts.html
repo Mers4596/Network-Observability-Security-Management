@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}Bildirim Merkezi | Nebula Net{% endblock %}
+
+{% block extra_css %}
+<!-- Alerts CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/alerts.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="alerts-content">
+    <div class="content-header">
+        <div class="content-title">
+            Bildirim Merkezi
+        </div>
+        <div class="alert-summary">
+            <div class="summary-item">
+                <span class="summary-dot critical"></span>
+                <span>4 Kritik</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-dot warning"></span>
+                <span>8 Uyarı</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-dot info"></span>
+                <span>12 Bilgi</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtreleme Hub'ı -->
+    <div class="filter-hub">
+        <div class="severity-filters">
+            <button class="severity-btn critical active" data-severity="critical">Kritik (4)</button>
+            <button class="severity-btn warning" data-severity="warning">Uyarı (8)</button>
+            <button class="severity-btn info" data-severity="info">Bilgi (12)</button>
+            <button class="severity-btn" style="border-color: #2A2F3A;">Tümü (24)</button>
+        </div>
+        <div class="category-tabs">
+            <span class="category-tab active" data-category="all">Tümü</span>
+            <span class="category-tab" data-category="security">Güvenlik</span>
+            <span class="category-tab" data-category="performance">Performans</span>
+            <span class="category-tab" data-category="hardware">Donanım</span>
+        </div>
+    </div>
+
+    <!-- Ana Grid -->
+    <div class="main-grid">
+        <!-- Sol: Bildirim Akışı -->
+        <div class="notification-feed">
+            <div class="feed-header">
+                <h3><i class="fas fa-bell" style="color: #00D1FF;"></i> Canlı Bildirim Akışı</h3>
+                <span class="feed-stats">24 yeni bildirim</span>
+            </div>
+            <div class="feed-list" id="feedList">
+                <!-- Bildirim 1 - Kritik -->
+                <div class="alert-card critical" data-severity="critical" data-category="security">
+                    <div class="alert-header">
+                        <div class="alert-type">
+                            <div class="alert-icon">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <span class="alert-title">🚨 Kritik Güvenlik Olayı</span>
+                        </div>
+                        <span class="alert-time"><i class="far fa-clock"></i> 2 dk önce</span>
+                    </div>
+                    <div class="alert-message">
+                        192.168.1.45 IP'li cihazdan 1000+ başarısız SSH denemesi tespit edildi.
+                    </div>
+                    <div class="alert-meta">
+                        <span><i class="fas fa-fingerprint"></i> Kaynak IP: 185.142.53.22</span>
+                        <span><i class="fas fa-bullseye"></i> Hedef: SSH Sunucusu</span>
+                    </div>
+                    <div class="alert-actions">
+                        <button class="alert-action-btn primary"><i class="fas fa-search"></i> Detaya
+                            Git</button>
+                        <button class="alert-action-btn"><i class="fas fa-clock"></i> 15 dk sonra</button>
+                        <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
+                    </div>
+                </div>
+
+                <!-- Bildirim 2 - Kritik -->
+                <div class="alert-card critical" data-severity="critical" data-category="hardware">
+                    <div class="alert-header">
+                        <div class="alert-type">
+                            <div class="alert-icon">
+                                <i class="fas fa-server"></i>
+                            </div>
+                            <span class="alert-title">🔴 Sunucu Çökme Riski</span>
+                        </div>
+                        <span class="alert-time"><i class="far fa-clock"></i> 5 dk önce</span>
+                    </div>
+                    <div class="alert-message">
+                        WEB-SRV-01'de CPU kullanımı %95'e ulaştı. Bellek yetmezliği yaklaşıyor.
+                    </div>
+                    <div class="alert-meta">
+                        <span><i class="fas fa-microchip"></i> CPU: %95</span>
+                        <span><i class="fas fa-memory"></i> RAM: %87</span>
+                    </div>
+                    <div class="alert-actions">
+                        <button class="alert-action-btn primary"><i class="fas fa-search"></i> Detaya
+                            Git</button>
+                        <button class="alert-action-btn"><i class="fas fa-clock"></i> 15 dk sonra</button>
+                        <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
+                    </div>
+                </div>
+
+                <!-- Bildirim 3 - Uyarı -->
+                <div class="alert-card warning" data-severity="warning" data-category="security">
+                    <div class="alert-header">
+                        <div class="alert-type">
+                            <div class="alert-icon">
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <span class="alert-title">⚠️ Yetkisiz Erişim Denemesi</span>
+                        </div>
+                        <span class="alert-time"><i class="far fa-clock"></i> 12 dk önce</span>
+                    </div>
+                    <div class="alert-message">
+                        Muhasebe departmanından yetkisiz bir cihaz yönetim paneline erişmeye çalıştı.
+                    </div>
+                    <div class="alert-meta">
+                        <span><i class="fas fa-laptop"></i> Cihaz: PC-192-120</span>
+                        <span><i class="fas fa-user"></i> Kullanıcı: unknown</span>
+                    </div>
+                    <div class="alert-actions">
+                        <button class="alert-action-btn primary"><i class="fas fa-search"></i> Detaya
+                            Git</button>
+                        <button class="alert-action-btn"><i class="fas fa-clock"></i> 15 dk sonra</button>
+                        <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
+                    </div>
+                </div>
+
+                <!-- Bildirim 4 - Uyarı -->
+                <div class="alert-card warning" data-severity="warning" data-category="performance">
+                    <div class="alert-header">
+                        <div class="alert-type">
+                            <div class="alert-icon">
+                                <i class="fas fa-tachometer-alt"></i>
+                            </div>
+                            <span class="alert-title">⚠️ Bant Genişliği Aşımı</span>
+                        </div>
+                        <span class="alert-time"><i class="far fa-clock"></i> 18 dk önce</span>
+                    </div>
+                    <div class="alert-message">
+                        WAN bağlantısında bant genişliği kullanımı %85'i aştı.
+                    </div>
+                    <div class="alert-meta">
+                        <span><i class="fas fa-arrow-down"></i> Download: 820 Mbps</span>
+                        <span><i class="fas fa-arrow-up"></i> Upload: 340 Mbps</span>
+                    </div>
+                    <div class="alert-actions">
+                        <button class="alert-action-btn primary"><i class="fas fa-search"></i> Detaya
+                            Git</button>
+                        <button class="alert-action-btn"><i class="fas fa-clock"></i> 15 dk sonra</button>
+                        <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
+                    </div>
+                </div>
+
+                <!-- Bildirim 5 - Bilgi -->
+                <div class="alert-card info" data-severity="info" data-category="hardware">
+                    <div class="alert-header">
+                        <div class="alert-type">
+                            <div class="alert-icon">
+                                <i class="fas fa-hdd"></i>
+                            </div>
+                            <span class="alert-title">ℹ️ Disk Alanı Uyarısı</span>
+                        </div>
+                        <span class="alert-time"><i class="far fa-clock"></i> 25 dk önce</span>
+                    </div>
+                    <div class="alert-message">
+                        DB-SRV-01'de disk alanı %80 doluluk oranına ulaştı.
+                    </div>
+                    <div class="alert-meta">
+                        <span><i class="fas fa-database"></i> Kullanım: 1.2TB / 1.5TB</span>
+                        <span><i class="fas fa-chart-line"></i> Artış hızı: %5/gün</span>
+                    </div>
+                    <div class="alert-actions">
+                        <button class="alert-action-btn primary"><i class="fas fa-search"></i> Detaya
+                            Git</button>
+                        <button class="alert-action-btn"><i class="fas fa-clock"></i> 15 dk sonra</button>
+                        <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
+                    </div>
+                </div>
+
+                <!-- Bildirim 6 - Bilgi -->
+                <div class="alert-card info" data-severity="info" data-category="security">
+                    <div class="alert-header">
+                        <div class="alert-type">
+                            <div class="alert-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <span class="alert-title">✅ Güvenlik Taraması Tamamlandı</span>
+                        </div>
+                        <span class="alert-time"><i class="far fa-clock"></i> 32 dk önce</span>
+                    </div>
+                    <div class="alert-message">
+                        Haftalık güvenlik taraması tamamlandı. 3 yeni zafiyet tespit edildi.
+                    </div>
+                    <div class="alert-meta">
+                        <span><i class="fas fa-shield"></i> Kritik: 1</span>
+                        <span><i class="fas fa-exclamation"></i> Orta: 2</span>
+                    </div>
+                    <div class="alert-actions">
+                        <button class="alert-action-btn primary"><i class="fas fa-search"></i> Raporu
+                            Gör</button>
+                        <button class="alert-action-btn"><i class="fas fa-clock"></i> 15 dk sonra</button>
+                        <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ: Bildirim Kanalları -->
+        <div>
+            <div class="notification-channels">
+                <div class="channels-header">
+                    <h3><i class="fas fa-broadcast-tower" style="color: #00D1FF;"></i> Bildirim Kanalları
+                    </h3>
+                    <span><i class="fas fa-sliders-h"></i> Yapılandır</span>
+                </div>
+                <div class="channels-grid">
+                    <div class="channel-card active">
+                        <div class="channel-icon">📧</div>
+                        <div class="channel-name">Email</div>
+                        <div class="channel-status active">Aktif</div>
+                    </div>
+                    <div class="channel-card inactive">
+                        <div class="channel-icon">📱</div>
+                        <div class="channel-name">SMS</div>
+                        <div class="channel-status inactive">Pasif</div>
+                    </div>
+                    <div class="channel-card active">
+                        <div class="channel-icon">💬</div>
+                        <div class="channel-name">Slack</div>
+                        <div class="channel-status active">Aktif</div>
+                    </div>
+                    <div class="channel-card active">
+                        <div class="channel-icon">📢</div>
+                        <div class="channel-name">Dashboard</div>
+                        <div class="channel-status active">Aktif</div>
+                    </div>
+                </div>
+
+                <!-- Hızlı Ayarlar -->
+                <div class="quick-settings">
+                    <div class="settings-title">
+                        <i class="fas fa-cog"></i> Hızlı Bildirim Ayarları
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Kritik alarmlar</span>
+                        <span class="setting-value">Anında</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Uyarılar</span>
+                        <span class="setting-value">5 dk içinde</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Bilgi mesajları</span>
+                        <span class="setting-value">Saatlik özet</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Sessiz mod</span>
+                        <span class="setting-value">00:00 - 06:00</span>
+                    </div>
+                </div>
+
+                <!-- İstatistik -->
+                <div style="margin-top: 20px; padding: 16px; background: #0B0E14; border-radius: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span>Bugün gelen bildirim</span>
+                        <span style="color: #00D1FF; font-weight: 600;">47</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Çözümlenen</span>
+                        <span style="color: #00E676;">32</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+    async function fetchAlerts() {
+        try {
+            const response = await fetch('/api/alerts');
+            if (!response.ok) throw new Error('API hatası');
+            const alerts = await response.json();
+
+            renderAlerts(alerts);
+            updateAlertSummary(alerts);
+        } catch (err) {
+            console.error("Alert verisi çekilemedi:", err);
+        }
+    }
+
+    function renderAlerts(alerts) {
+        const feedList = document.getElementById('feedList');
+        feedList.innerHTML = '';
+
+        alerts.forEach(alert => {
+            const card = document.createElement('div');
+            card.className = `alert-card ${alert.severity}`;
+            card.dataset.severity = alert.severity;
+            card.dataset.category = 'security'; // Backend currently mostly security
+
+            const icon = alert.severity === 'critical' ? 'shield-alt' : (alert.severity === 'warning' ? 'lock' : 'info-circle');
+            const titleEmoji = alert.severity === 'critical' ? '🚨' : (alert.severity === 'warning' ? '⚠️' : 'ℹ️');
+
+            card.innerHTML = `
+                <div class="alert-header">
+                    <div class="alert-type">
+                        <div class="alert-icon">
+                            <i class="fas fa-${icon}"></i>
+                        </div>
+                        <span class="alert-title">${titleEmoji} ${alert.type}</span>
+                    </div>
+                    <span class="alert-time"><i class="far fa-clock"></i> ${alert.timestamp}</span>
+                </div>
+                <div class="alert-message">
+                    ${alert.message}
+                </div>
+                <div class="alert-meta">
+                    <span><i class="fas fa-laptop"></i> Cihaz: ${alert.hostname} (${alert.ip_address})</span>
+                    <span><i class="fas fa-tag"></i> Durum: ${alert.status}</span>
+                </div>
+                <div class="alert-actions">
+                    <button class="alert-action-btn primary"><i class="fas fa-search"></i> Detaya Git</button>
+                    <button class="alert-action-btn"><i class="fas fa-check"></i> Çözüldü</button>
+                    <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
+                </div>
+            `;
+            feedList.appendChild(card);
+        });
+
+        // Re-apply filters after rendering
+        filterAlerts();
+    }
+
+    function updateAlertSummary(alerts) {
+        const counts = {
+            critical: alerts.filter(a => a.severity === 'critical').length,
+            warning: alerts.filter(a => a.severity === 'warning').length,
+            info: alerts.filter(a => a.severity === 'info' || a.severity === 'low').length
+        };
+
+        // Update top summary
+        document.querySelector('.summary-item .critical + span').textContent = `${counts.critical} Kritik`;
+        document.querySelector('.summary-item .warning + span').textContent = `${counts.warning} Uyarı`;
+        document.querySelector('.summary-item .info + span').textContent = `${counts.info} Bilgi`;
+
+        // Update filter buttons
+        document.querySelector('.severity-btn.critical').textContent = `Kritik (${counts.critical})`;
+        document.querySelector('.severity-btn.warning').textContent = `Uyarı (${counts.warning})`;
+        document.querySelector('.severity-btn.info').textContent = `Bilgi (${counts.info})`;
+        document.querySelector('.severity-btn[style*="border-color"]').textContent = `Tümü (${alerts.length})`;
+
+        document.querySelector('.feed-stats').textContent = `${alerts.length} yeni bildirim`;
+    }
+
+    // Filtreleme butonları
+    const severityBtns = document.querySelectorAll('.severity-btn');
+    const categoryTabs = document.querySelectorAll('.category-tab');
+
+    function filterAlerts() {
+        const activeSeverity = document.querySelector('.severity-btn.active')?.dataset.severity || 'all';
+        const activeCategory = document.querySelector('.category-tab.active')?.dataset.category || 'all';
+        const cards = document.querySelectorAll('.alert-card');
+
+        cards.forEach(card => {
+            const cardSeverity = card.dataset.severity;
+            const cardCategory = card.dataset.category;
+
+            const severityMatch = activeSeverity === 'all' || cardSeverity === activeSeverity;
+            const categoryMatch = activeCategory === 'all' || cardCategory === activeCategory;
+
+            card.style.display = (severityMatch && categoryMatch) ? 'block' : 'none';
+        });
+    }
+
+    severityBtns.forEach(btn => {
+        btn.addEventListener('click', function () {
+            severityBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            filterAlerts();
+        });
+    });
+
+    categoryTabs.forEach(tab => {
+        tab.addEventListener('click', function () {
+            categoryTabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            filterAlerts();
+        });
+    });
+
+    // Bildirim aksiyonları (delegation used for dynamic elements)
+    document.getElementById('feedList').addEventListener('click', function (e) {
+        const btn = e.target.closest('.alert-action-btn');
+        if (!btn) return;
+
+        const action = btn.textContent.trim();
+        const card = btn.closest('.alert-card');
+        const title = card.querySelector('.alert-title').textContent;
+
+        if (action.includes('Detaya Git')) {
+            alert(`${title} detayları görüntüleniyor...`);
+        } else if (action.includes('Çözüldü')) {
+            card.style.opacity = '0.5';
+            btn.disabled = true;
+            alert('Bildirim çözüldü olarak işaretlendi.');
+        } else if (action.includes('Göz ardı et')) {
+            if (confirm('Bu bildirimi göz ardı etmek istediğinizden emin misiniz?')) {
+                card.remove();
+            }
+        }
+    });
+
+    // Bildirim kanalları
+    document.querySelectorAll('.channel-card').forEach(channel => {
+        channel.addEventListener('click', function () {
+            const isActive = this.classList.contains('active');
+            const channelName = this.querySelector('.channel-name').textContent;
+
+            if (isActive) {
+                if (confirm(`${channelName} kanalını pasifleştirmek istediğinizden emin misiniz?`)) {
+                    this.classList.remove('active');
+                    this.classList.add('inactive');
+                    this.querySelector('.channel-status').textContent = 'Pasif';
+                    this.querySelector('.channel-status').className = 'channel-status inactive';
+                }
+            } else {
+                this.classList.remove('inactive');
+                this.classList.add('active');
+                this.querySelector('.channel-status').textContent = 'Aktif';
+                this.querySelector('.channel-status').className = 'channel-status active';
+                alert(`${channelName} kanalı aktifleştirildi.`);
+            }
+        });
+    });
+
+    // İlk yükleme ve periyodik güncelleme
+    fetchAlerts();
+    setInterval(fetchAlerts, 5000);
+</script>
+</script>
+{% endblock %}

@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}Ağ Topolojisi | Nebula Net{% endblock %}
+
+{% block extra_css %}
+<!-- Topology CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/topology.css') }}">
+<!-- Chart.js -->
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    /* --- Topology Specific Animations --- */
+    @keyframes dash-move {
+        from {
+            background-position: 0 0;
+        }
+
+        to {
+            background-position: 40px 0;
+        }
+    }
+
+    @keyframes node-glow-cyan {
+        0% {
+            box-shadow: 0 0 5px var(--neon-cyan-glow);
+        }
+
+        50% {
+            box-shadow: 0 0 15px var(--neon-cyan-glow);
+        }
+
+        100% {
+            box-shadow: 0 0 5px var(--neon-cyan-glow);
+        }
+    }
+
+    /* --- Connection Lines (Neon SVG Style) --- */
+    .line {
+        height: 2px;
+        background: rgba(0, 242, 255, 0.1);
+        position: absolute;
+        transform-origin: 0 50%;
+        z-index: 1 !important;
+        pointer-events: none;
+        transition: var(--transition-smooth);
+    }
+
+    .line.active-flow {
+        background: repeating-linear-gradient(90deg,
+                var(--neon-cyan) 0%,
+                var(--neon-cyan) 20%,
+                transparent 20%,
+                transparent 40%);
+        background-size: 40px 100%;
+        animation: dash-move 1s linear infinite;
+        box-shadow: 0 0 10px var(--neon-cyan-glow);
+        height: 3px;
+        opacity: 0.8;
+    }
+
+    .line.red-path {
+        background: repeating-linear-gradient(90deg,
+                var(--critical-red) 0%,
+                var(--critical-red) 25%,
+                transparent 25%,
+                transparent 50%);
+        background-size: 30px 100%;
+        animation: dash-move 0.6s linear infinite;
+        box-shadow: 0 0 15px var(--critical-glow);
+        height: 4px !important;
+        z-index: 3 !important;
+        opacity: 1;
+    }
+
+    .line.isolated-path {
+        background: transparent !important;
+        border-top: 2px dotted #454d5d !important;
+        box-shadow: none !important;
+        height: 1px !important;
+        animation: none !important;
+        opacity: 0.4;
+    }
+
+    /* --- Node Styling --- */
+    .device-icon {
+        position: absolute;
+        width: 64px;
+        height: 64px;
+        background: var(--bg-glass);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border-glass);
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        transition: var(--transition-smooth);
+        animation: node-glow-cyan 3s infinite;
+    }
+
+    .device-icon:hover {
+        transform: scale(1.1) translateY(-5px);
+        border-color: var(--neon-cyan);
+        box-shadow: 0 0 20px var(--neon-cyan-glow);
+        z-index: 20;
+    }
+
+    .device-icon.selected {
+        border-color: var(--neon-cyan);
+        box-shadow: 0 0 30px var(--neon-cyan-glow);
+        background: rgba(0, 242, 255, 0.05);
+    }
+
+    .device-icon i {
+        font-size: 24px;
+        color: var(--neon-cyan);
+        filter: drop-shadow(0 0 5px var(--neon-cyan-glow));
+    }
+
+    .device-name {
+        position: absolute;
+        bottom: -25px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    /* --- Pulse States --- */
+    .pulse-fast-red {
+        animation: nodeStrobe 0.4s infinite !important;
+        border-color: var(--critical-red) !important;
+    }
+
+    .pulse-slow-orange {
+        animation: breathingPulse 3s infinite !important;
+        border-color: var(--warning-orange) !important;
+    }
+
+    @keyframes nodeStrobe {
+        0% {
+            box-shadow: 0 0 0 0 var(--critical-glow);
+            background: var(--critical-red);
+        }
+
+        50% {
+            box-shadow: 0 0 25px 10px transparent;
+            background: var(--bg-obsidian);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 var(--critical-glow);
+            background: var(--critical-red);
+        }
+    }
+
+    @keyframes breathingPulse {
+        0% {
+            box-shadow: 0 0 5px var(--warning-glow);
+        }
+
+        50% {
+            box-shadow: 0 0 20px 5px var(--warning-glow);
+        }
+
+        100% {
+            box-shadow: 0 0 5px var(--warning-glow);
+        }
+    }
+
+    .node-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        background: var(--bg-obsidian);
+        border: 2px solid var(--border-glass);
+        z-index: 15;
+    }
+
+    .status-isolated {
+        filter: grayscale(1) !important;
+        opacity: 0.6 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="topology-content">
+    <div class="content-header">
+        <div class="content-title">
+            Ağ Topolojisi
+            <span class="live-badge"><i class="fas fa-circle"></i> CANLI</span>
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-dot" style="background: #00D1FF;"></span>
+                <span>Aktif Bağlantı</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: #FF4B5C;"></span>
+                <span>Problem</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-line active"></div>
+                <span>Veri Akışı</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Topoloji Haritası -->
+    <div class="topology-map">
+        <div class="map-container" id="mapContainer">
+            <!-- Bağlantılar ve Cihazlar JavaScript ile dinamik olarak eklenecek -->
+        </div>
+    </div>
+</div>
+
+<!-- Side Drawer (Yan Panel) -->
+<div class="side-drawer" id="sideDrawer">
+    <div class="drawer-header">
+        <h3>Cihaz Detayları</h3>
+        <button class="close-drawer" id="closeDrawer">&times;</button>
+    </div>
+    <div id="drawerContent">
+        <!-- İçerik dinamik olarak doldurulacak -->
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // State & Cache
+    let currentDevices = [];
+    let trafficData = [];
+    const nodeCache = new Map();
+    const edgeCache = new Map();
+
+    appStore.subscribe((state) => {
+        currentDevices = state.devices;
+        renderTopology(state.devices);
+    });
+
+    // 1. Flicker-Free Node Renderer
+    function renderTopology(devices) {
+        const container = document.getElementById('mapContainer');
+        const centerX = container.clientWidth / 2;
+        const centerY = container.clientHeight / 2;
+
+        const iconMap = {
+            network: 'fa-network-wired',
+            server: 'fa-database',
+            pc: 'fa-desktop',
+            iot: 'fa-microchip',
+            mobile: 'fa-mobile-alt'
+        };
+
+        devices.forEach((device, index) => {
+            let el = document.getElementById(`node-${device.id}`);
+            const isNew = !el;
+
+            if (isNew) {
+                el = document.createElement('div');
+                el.className = 'device-icon';
+                el.id = `node-${device.id}`;
+                container.appendChild(el);
+                nodeCache.set(device.id, el);
+            }
+
+            // Update Classes (Pulse/Risk/Contagion)
+            el.className = 'device-icon';
+            if (device.status === 'Isolated') {
+                el.classList.add('status-isolated');
+            } else if (device.risk_level > 80) {
+                el.classList.add('pulse-fast-red');
+            } else if (device.status === 'Under Scan') {
+                el.classList.add('pulse-scanning');
+            } else if (device.shadow_risk_flag) {
+                el.classList.add('pulse-slow-orange');
+            }
+
+            // Status Badge
+            let badgeIcon = device.status === 'Isolated' ? 'fa-unlink' : (device.risk_level > 80 ? 'fa-radiation' : (device.status === 'online' ? 'fa-shield-alt' : 'fa-clock'));
+            let badgeClass = device.status === 'Isolated' ? 'badge-threat' : (device.risk_level > 80 ? 'badge-threat' : (device.risk_level > 30 ? 'badge-warning' : 'badge-secure'));
+
+            // Positioning (Calculated once or transitioned)
+            let x, y;
+            if (device.parent_id === null) {
+                x = centerX - 30;
+                y = centerY - 30;
+            } else {
+                const angle = (index * (360 / (devices.length - 1))) * (Math.PI / 180);
+                const radius = 220;
+                x = centerX + radius * Math.cos(angle) - 30;
+                y = centerY + radius * Math.sin(angle) - 30;
+            }
+
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+
+            const icon = iconMap[device.type] || 'fa-question';
+            el.innerHTML = `
+                <div class="node-badge ${badgeClass}"><i class="fas ${badgeIcon}"></i></div>
+                <div class="device-status status-${device.status === 'online' ? 'up' : 'down'}"></div>
+                <i class="fas ${icon}"></i>
+                <span class="device-name">${device.hostname}</span>
+            `;
+
+            if (isNew) {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.device-icon').forEach(d => d.classList.remove('selected'));
+                    el.classList.add('selected');
+                    openDrawer(device.id);
+                });
+            }
+        });
+
+        // Initial connections draw
+        drawConnections(devices);
+    }
+
+    // 2. Connection Drawing with Dynamic Width placeholder
+    function drawConnections(devices) {
+        const topologyLinks = appStore.state.topology || [];
+        topologyLinks.forEach(link => {
+            const fromEl = document.getElementById(`node-${link.source_id}`);
+            const toEl = document.getElementById(`node-${link.target_id}`);
+
+            if (!fromEl || !toEl) return;
+
+            let lineId = `line-${link.source_id}-${link.target_id}`;
+            let line = document.getElementById(lineId);
+            if (!line) {
+                line = document.createElement('div');
+                line.id = lineId;
+                line.className = 'line';
+                document.getElementById('mapContainer').appendChild(line);
+            }
+
+            const fromPos = {
+                x: parseFloat(fromEl.style.left) + 30,
+                y: parseFloat(fromEl.style.top) + 30
+            };
+            const toPos = {
+                x: parseFloat(toEl.style.left) + 30,
+                y: parseFloat(toEl.style.top) + 30
+            };
+
+            const length = Math.sqrt(Math.pow(toPos.x - fromPos.x, 2) + Math.pow(toPos.y - fromPos.y, 2));
+            const angle = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x) * 180 / Math.PI;
+
+            line.style.width = length + 'px';
+            line.style.left = fromPos.x + 'px';
+            line.style.top = fromPos.y + 'px';
+            line.style.transform = `rotate(${angle}deg)`;
+            line.style.position = 'absolute';
+            line.style.zIndex = '1';
+
+            const device = currentDevices.find(d => d.id === link.source_id) || {};
+
+            // Path Styling Logic
+            if (device.status === 'Isolated' || link.status === 'down') {
+                line.classList.add('isolated-path');
+                line.classList.remove('red-path', 'active-flow');
+            } else if (device.risk_level > 80) {
+                line.classList.add('red-path');
+                line.classList.remove('isolated-path', 'active-flow');
+            } else {
+                line.classList.remove('red-path', 'isolated-path');
+                line.classList.add('active-flow');
+            }
+
+            if (device.status === 'offline' || device.status === 'Isolated' || link.status === 'down') line.classList.add('down');
+            else line.classList.remove('down');
+        });
+    }
+
+    // 3. Dynamic Edge Width Logic (Every 3 seconds)
+    async function updateLiveEdges() {
+        try {
+            const res = await fetch('/api/traffic');
+            const logs = await res.json();
+            const topologyLinks = appStore.state.topology || [];
+
+            topologyLinks.forEach(link => {
+                const lineId = `line-${link.source_id}-${link.target_id}`;
+                const line = document.getElementById(lineId);
+                if (!line) return;
+
+                // Find recent bytes for this link's source
+                const deviceLog = logs.find(l => l.device_id === link.source_id);
+                const bytes = deviceLog ? deviceLog.bytes_sent : 500;
+
+                // Map bytes to thickness (1px to 6px)
+                const thickness = Math.min(6, Math.max(1, bytes / 10000));
+                line.style.height = `${thickness}px`;
+                line.style.background = thickness > 4 ? '#FFB74D' : '#00D1FF';
+            });
+        } catch (err) {
+            console.error("Traffic update failed:", err);
+        }
+    }
+
+    // 4. Enhanced Side Drawer (Triple Action)
+    async function openDrawer(deviceId) {
+        const device = currentDevices.find(d => d.id === deviceId);
+        if (!device) return;
+
+        const drawer = document.getElementById('sideDrawer');
+        const drawerContent = document.getElementById('drawerContent');
+
+        // Fetch latest scan finding for this device
+        let latestScan = { vulnerabilities_found: 'No scan data' };
+        try {
+            const scanRes = await fetch('/api/scans');
+            const scans = await scanRes.json();
+            const deviceScan = scans.find(s => s.device_id === deviceId);
+            if (deviceScan) latestScan = deviceScan;
+        } catch (err) { console.error("Could not fetch scan history:", err); }
+
+        const iconMap = {
+            network: 'fa-network-wired', server: 'fa-database', pc: 'fa-desktop', iot: 'fa-microchip', mobile: 'fa-mobile-alt'
+        };
+
+        const canRestore = latestScan.vulnerabilities_found.includes("Threat Neutralized");
+
+        drawerContent.innerHTML = `
+            <div class="device-detail-icon" style="font-size: 40px; text-align: center; margin-bottom: 20px; color: var(--neon-cyan);"><i class="fas ${iconMap[device.type] || 'fa-question'}"></i></div>
+            <h2 style="text-align: center; margin-bottom: 30px; letter-spacing: 2px;">${device.hostname}</h2>
+            
+            <div class="glass-card" style="margin-bottom: 20px; padding: 15px;">
+                <div class="detail-row" style="display: flex; justify-content: space-between; margin-bottom: 10px;"><span>IP ADDRESS</span><strong style="color: var(--neon-cyan);">${device.ip_address}</strong></div>
+                <div class="detail-row" style="display: flex; justify-content: space-between; margin-bottom: 10px;"><span>RISK SCORE</span><strong style="color: ${device.risk_level > 80 ? 'var(--critical-red)' : 'var(--neon-cyan)'}">${device.risk_level}%</strong></div>
+                <div class="detail-row" style="display: flex; justify-content: space-between; margin-bottom: 10px;"><span>LOCATION</span><strong>${device.location}</strong></div>
+                <div class="detail-row" style="display: flex; justify-content: space-between;"><span>STATUS</span><span class="status-pill ${device.status === 'Isolated' ? 'pill-isolated' : (device.risk_level > 80 ? 'pill-critical' : 'pill-online')}">${device.status.toUpperCase()}</span></div>
+            </div>
+
+            <h4 style="margin: 30px 0 15px; color: var(--text-muted); font-size: 12px; letter-spacing: 2px;">REMEDIATION CONTROL</h4>
+            <div class="glass-card" style="background: rgba(243, 156, 18, 0.03); border-left: 4px solid var(--warning-orange); margin-bottom: 30px;">
+                <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 5px;">LAST SCAN FINDING</p>
+                <p style="font-size: 14px; color: white; font-weight: 500;">${latestScan.vulnerabilities_found}</p>
+            </div>
+
+            <div class="action-menu" style="display: flex; flex-direction: column; gap: 12px;">
+                ${device.status !== 'Isolated' ? `
+                    <button onclick="isolateDevice('${device.id}')" class="action-btn action-btn-red">
+                        <i class="fas fa-unlink"></i> SEVER CONNECTION
+                    </button>
+                ` : ''}
+
+                <button onclick="manualScan('${device.id}')" class="action-btn" ${device.status === 'Under Scan' ? 'disabled' : ''}>
+                    <i class="fas fa-microchip"></i> ${device.status === 'Under Scan' ? 'DIAGNOSING...' : 'FORCE MANUAL SCAN'}
+                </button>
+
+                ${device.status === 'Isolated' && canRestore ? `
+                    <button onclick="restoreDevice('${device.id}')" class="action-btn" style="border-color: #00e676; color: #00e676;">
+                        <i class="fas fa-bolt"></i> RESTORE NODE
+                    </button>
+                ` : (device.status === 'Isolated' ? `
+                    <div style="background: rgba(255, 75, 43, 0.1); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(255, 75, 43, 0.2);">
+                        <p style="font-size: 11px; color: var(--critical-red);"><i class="fas fa-lock"></i> RESTORE LOCKED: HAZARDOUS STATE</p>
+                    </div>
+                ` : '')}
+            </div>
+        `;
+
+        drawer.classList.add('open');
+    }
+
+    async function isolateDevice(deviceId) {
+        const device = currentDevices.find(d => d.id === deviceId);
+        if (!device || !confirm(`Sever network connection for ${device.hostname}?`)) return;
+        await deviceAction('isolate', deviceId, device.hostname);
+        openDrawer(deviceId);
+    }
+
+    async function manualScan(deviceId) {
+        const device = currentDevices.find(d => d.id === deviceId);
+        await deviceAction('scan', deviceId, device ? device.hostname : deviceId);
+        // Reopen drawer after ~3.5s so the updated scan row is visible
+        setTimeout(() => openDrawer(deviceId), 3500);
+    }
+
+    async function restoreDevice(deviceId) {
+        const device = currentDevices.find(d => d.id === deviceId);
+        await deviceAction('restore', deviceId, device ? device.hostname : deviceId);
+        openDrawer(deviceId);
+    }
+
+    // Loops
+    setInterval(updateLiveEdges, 3000);
+
+    document.getElementById('closeDrawer').addEventListener('click', () => {
+        document.getElementById('sideDrawer').classList.remove('open');
+        document.querySelectorAll('.device-icon').forEach(d => d.classList.remove('selected'));
+    });
+
+    window.addEventListener('resize', () => drawConnections(currentDevices));
+</script>
+{% endblock %}

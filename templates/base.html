@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
+    {% block i18n_title_block %}
+    <meta name="i18n-title" content="title_dashboard">
+    {% endblock %}
+    <title>{% block title %}Network Management Console{% endblock %}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <!-- Socket.io for Real-time alerts -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <div class="app-container">
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="logo">
+                <div class="logo-icon"
+                    style="background: var(--neon-cyan); color: var(--bg-obsidian); box-shadow: 0 0 15px var(--neon-cyan-glow);">
+                    N</div>
+                <span style="letter-spacing: 2px; font-weight: 700;">NEBULA<span
+                        style="color: var(--neon-cyan);">.IO</span></span>
+            </div>
+            <div class="nav-menu">
+                <a href="{{ url_for('dashboard') }}" data-tooltip="Dashboard"
+                    class="menu-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-pie"></i>
+                    <span data-i18n="nav_dashboard">Dashboard</span>
+                </a>
+                <a href="{{ url_for('topology') }}" data-tooltip="Topology"
+                    class="menu-item {% if request.endpoint == 'topology' %}active{% endif %}">
+                    <i class="fas fa-project-diagram"></i>
+                    <span data-i18n="nav_topology">Topology</span>
+                </a>
+                <a href="{{ url_for('assets') }}" data-tooltip="Assets"
+                    class="menu-item {% if request.endpoint == 'assets' %}active{% endif %}">
+                    <i class="fas fa-server"></i>
+                    <span data-i18n="nav_assets">Assets</span>
+                </a>
+                <a href="{{ url_for('traffic') }}" data-tooltip="Traffic"
+                    class="menu-item {% if request.endpoint == 'traffic' %}active{% endif %}">
+                    <i class="fas fa-chart-line"></i>
+                    <span data-i18n="nav_traffic">Traffic</span>
+                </a>
+                <a href="{{ url_for('securityAudit') }}" data-tooltip="Security &amp; Audit"
+                    class="menu-item {% if request.endpoint == 'securityAudit' %}active{% endif %}">
+                    <i class="fas fa-shield-alt"></i>
+                    <span data-i18n="nav_security">Security &amp; Audit</span>
+                </a>
+                <a href="{{ url_for('accessControl') }}" data-tooltip="Access Control"
+                    class="menu-item {% if request.endpoint == 'accessControl' %}active{% endif %}">
+                    <i class="fas fa-lock"></i>
+                    <span data-i18n="nav_access">Access Control</span>
+                </a>
+                <a href="{{ url_for('alerts') }}" data-tooltip="Alerts"
+                    class="menu-item {% if request.endpoint == 'alerts' %}active{% endif %}">
+                    <i class="fas fa-bell"></i>
+                    <span data-i18n="nav_alerts">Alerts</span>
+                </a>
+                <a href="{{ url_for('settings') }}" data-tooltip="Settings"
+                    class="menu-item {% if request.endpoint == 'settings' %}active{% endif %}">
+                    <i class="fas fa-cog"></i>
+                    <span data-i18n="nav_settings">Settings</span>
+                </a>
+            </div>
+            <div class="menu-item toggle-item" id="toggleSidebar" data-tooltip="Expand"
+                style="margin-top: auto; cursor: pointer;">
+                <i class="fas fa-chevron-left" id="toggleIcon"></i>
+                <span data-i18n="nav_collapse">Collapse</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+
+            <!-- Topbar -->
+            <div class="topbar">
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" data-i18n-placeholder="topbar_search_ph"
+                        placeholder="Search device, IP or event...">
+                </div>
+                <div class="topbar-right">
+                    <!-- Language Switcher -->
+                    <div class="lang-switcher">
+                        <button class="lang-btn active" data-lang="EN" onclick="appLang.setLanguage('EN')"
+                            title="Switch to English">EN</button>
+                        <span class="lang-divider">|</span>
+                        <button class="lang-btn" data-lang="TR" onclick="appLang.setLanguage('TR')"
+                            title="Türkçeye geç">TR</button>
+                    </div>
+                    <div class="notification-badge">
+                        <i class="far fa-bell" style="color: var(--neon-cyan);"></i>
+                        <span class="badge">3</span>
+                    </div>
+                    <div class="user-profile">
+                        <span>ME</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page Content -->
+            <div class="dashboard-content">
+                {% block content %}
+                {% endblock %}
+            </div>
+
+        </div>
+    </div>
+
+    <!-- i18n: dictionary → engine → store (order matters) -->
+    <script src="{{ url_for('static', filename='js/lang-config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/store.js') }}"></script>
+
+    <script>
+        /* Sidebar collapse / expand */
+        (function () {
+            var sidebar = document.getElementById('sidebar');
+            var mainContent = document.querySelector('.main-content');
+            var topbar = document.querySelector('.topbar');
+            var toggleBtn = document.getElementById('toggleSidebar');
+            var toggleSpan = toggleBtn.querySelector('span');
+
+            function getLabel(collapsed) {
+                if (typeof appLang !== 'undefined') {
+                    return collapsed ? appLang.t('nav_expand') : appLang.t('nav_collapse');
+                }
+                return collapsed ? 'Expand' : 'Collapse';
+            }
+
+            toggleBtn.addEventListener('click', function () {
+                var isCollapsed = sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('collapsed', isCollapsed);
+                topbar.classList.toggle('collapsed', isCollapsed);
+                toggleSpan.textContent = getLabel(isCollapsed);
+                toggleBtn.dataset.tooltip = getLabel(isCollapsed);
+                localStorage.setItem('sidebar-collapsed', isCollapsed ? '1' : '0');
+            });
+
+            if (localStorage.getItem('sidebar-collapsed') === '1') {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('collapsed');
+                topbar.classList.add('collapsed');
+                toggleSpan.textContent = getLabel(true);
+                toggleBtn.dataset.tooltip = getLabel(true);
+            }
+
+            document.addEventListener('languagechange', function () {
+                var isCollapsed = sidebar.classList.contains('collapsed');
+                toggleSpan.textContent = getLabel(isCollapsed);
+                toggleBtn.dataset.tooltip = getLabel(isCollapsed);
+            });
+        }());
+    </script>
+
+    {% block scripts %}
+    {% endblock %}
+
+</body>
+
+</html>

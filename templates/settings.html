@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+
+{% block title %}Sistem Ayarları | Nebula Net{% endblock %}
+
+{% block extra_css %}
+<!-- Settings CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/settings.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="settings-content">
+    <div class="content-header">
+        <div class="content-title">
+            Sistem Ayarları
+        </div>
+        <div class="version-badge">
+            <i class="fas fa-code-branch"></i> v1.0.4-beta
+            <span style="color: #00E676;">●</span> Aktif
+        </div>
+    </div>
+
+    <!-- Ana Settings Grid -->
+    <div class="settings-grid">
+        <!-- Sol İç Menü -->
+        <div class="settings-menu">
+            <div class="menu-group">
+                <div class="menu-group-title">Genel</div>
+                <div class="settings-menu-item active" data-tab="general">
+                    <i class="fas fa-globe"></i>
+                    <span>General</span>
+                </div>
+            </div>
+
+            <div class="menu-group">
+                <div class="menu-group-title">Sistem</div>
+                <div class="settings-menu-item" data-tab="scanning">
+                    <i class="fas fa-search"></i>
+                    <span>Scanning</span>
+                    <span class="menu-badge">5 dk</span>
+                </div>
+                <div class="settings-menu-item" data-tab="integrations">
+                    <i class="fas fa-plug"></i>
+                    <span>Integrations</span>
+                    <span class="menu-badge">3</span>
+                </div>
+            </div>
+
+            <div class="menu-group">
+                <div class="menu-group-title">Yönetim</div>
+                <div class="settings-menu-item" data-tab="users">
+                    <i class="fas fa-users"></i>
+                    <span>User Management</span>
+                </div>
+                <div class="settings-menu-item" data-tab="backup">
+                    <i class="fas fa-database"></i>
+                    <span>Backup</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ana Alan - Form -->
+        <div>
+            <!-- General Tab -->
+            <div class="settings-form-card" id="general-tab">
+                <div class="form-header">
+                    <h2><i class="fas fa-globe"></i> Genel Ayarlar</h2>
+                    <span class="section-desc">Sistem kimliği ve bölgesel ayarlar</span>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <i class="fas fa-tag"></i> Sistem Adı
+                    </div>
+                    <input type="text" class="form-input" value="Nebula Net - Ana Merkez" placeholder="Sistem adı">
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <i class="fas fa-language"></i> Dil
+                    </div>
+                    <select class="form-select">
+                        <option>Türkçe</option>
+                        <option>English</option>
+                        <option>Deutsch</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <i class="fas fa-clock"></i> Zaman Dilimi
+                    </div>
+                    <select class="form-select">
+                        <option>Europe/Istanbul (UTC+3)</option>
+                        <option>Europe/London (UTC+0)</option>
+                        <option>America/New_York (UTC-5)</option>
+                    </select>
+                </div>
+
+                <div class="toggle-group">
+                    <div>
+                        <div class="toggle-label">Otomatik Güncelleme</div>
+                        <div class="toggle-desc">Yeni sürümler otomatik olarak yüklensin</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div>
+                        <div class="toggle-label">Telemetri</div>
+                        <div class="toggle-desc">Anonim kullanım istatistikleri gönder</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button class="cancel-btn">İptal</button>
+                    <button class="save-btn"><i class="fas fa-save"></i> Değişiklikleri Kaydet</button>
+                </div>
+            </div>
+
+            <!-- Scanning Tab (gizli) -->
+            <div class="settings-form-card" id="scanning-tab" style="display: none;">
+                <div class="form-header">
+                    <h2><i class="fas fa-search"></i> Ağ Tarama Ayarları</h2>
+                    <span class="section-desc">Tarama sıklığı ve derinliği</span>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <i class="fas fa-clock"></i> Tarama Sıklığı
+                    </div>
+                    <select class="form-select">
+                        <option>1 dakikada bir</option>
+                        <option selected>5 dakikada bir</option>
+                        <option>15 dakikada bir</option>
+                        <option>Saatte bir</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <i class="fas fa-microscope"></i> Tarama Derinliği
+                    </div>
+                    <select class="form-select">
+                        <option>Hızlı tarama (port 1-1024)</option>
+                        <option selected>Derin tarama (tüm portlar)</option>
+                        <option>Çok derin (port + servis tespiti)</option>
+                    </select>
+                </div>
+
+                <div class="toggle-group">
+                    <div>
+                        <div class="toggle-label">Pasif Cihazları Tara</div>
+                        <div class="toggle-desc">Kapalı cihazları da tara</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div>
+                        <div class="toggle-label">MAC Adresi Takibi</div>
+                        <div class="toggle-desc">Cihazları MAC adresine göre tanımla</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button class="cancel-btn">İptal</button>
+                    <button class="save-btn"><i class="fas fa-save"></i> Kaydet</button>
+                </div>
+            </div>
+
+            <!-- Integrations Tab (gizli) -->
+            <div class="settings-form-card" id="integrations-tab" style="display: none;">
+                <div class="form-header">
+                    <h2><i class="fas fa-plug"></i> Entegrasyonlar</h2>
+                    <span class="section-desc">API anahtarları ve harici servisler</span>
+                </div>
+
+                <div class="api-key-group">
+                    <div class="api-header">
+                        <span class="api-name"><i class="fas fa-shield" style="color: #00D1FF;"></i>
+                            Fortinet</span>
+                        <span class="api-status active">Aktif</span>
+                    </div>
+                    <div class="api-key-input">
+                        <input type="password" value="ftnt-8a7d6f5e4d3c2b1a" readonly>
+                        <button class="api-btn"><i class="fas fa-copy"></i></button>
+                        <button class="api-btn"><i class="fas fa-sync"></i></button>
+                    </div>
+                </div>
+
+                <div class="api-key-group">
+                    <div class="api-header">
+                        <span class="api-name"><i class="fas fa-network-wired" style="color: #00E676;"></i>
+                            Cisco</span>
+                        <span class="api-status active">Aktif</span>
+                    </div>
+                    <div class="api-key-input">
+                        <input type="password" value="cisc-9b8a7c6d5e4f3g2h" readonly>
+                        <button class="api-btn"><i class="fas fa-copy"></i></button>
+                        <button class="api-btn"><i class="fas fa-sync"></i></button>
+                    </div>
+                </div>
+
+                <div class="api-key-group">
+                    <div class="api-header">
+                        <span class="api-name"><i class="fas fa-cloud" style="color: #FFB74D;"></i> AWS
+                            Cloud</span>
+                        <span class="api-status inactive">Pasif</span>
+                    </div>
+                    <div class="api-key-input">
+                        <input type="text" placeholder="AWS API Key girin">
+                        <button class="api-btn"><i class="fas fa-plus"></i> Ekle</button>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button class="cancel-btn">İptal</button>
+                    <button class="save-btn"><i class="fas fa-save"></i> Kaydet</button>
+                </div>
+            </div>
+
+            <!-- User Management Tab (gizli) -->
+            <div class="settings-form-card" id="users-tab" style="display: none;">
+                <div class="form-header">
+                    <h2><i class="fas fa-users"></i> Kullanıcı Yönetimi</h2>
+                    <span class="section-desc">Yönetici yetkileri ve roller</span>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <button class="save-btn" style="padding: 10px 20px;"><i class="fas fa-user-plus"></i>
+                        Yeni Kullanıcı Ekle</button>
+                </div>
+
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th>Kullanıcı</th>
+                            <th>E-posta</th>
+                            <th>Rol</th>
+                            <th>Son Giriş</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Ahmet Yılmaz</td>
+                            <td>ahmet@company.com</td>
+                            <td><span class="user-role role-admin">Admin</span></td>
+                            <td>2 dk önce</td>
+                            <td class="user-actions">
+                                <i class="fas fa-edit"></i>
+                                <i class="fas fa-trash"></i>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Ayşe Demir</td>
+                            <td>ayse@company.com</td>
+                            <td><span class="user-role role-editor">Editor</span></td>
+                            <td>15 dk önce</td>
+                            <td class="user-actions">
+                                <i class="fas fa-edit"></i>
+                                <i class="fas fa-trash"></i>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Mehmet Kaya</td>
+                            <td>mehmet@company.com</td>
+                            <td><span class="user-role role-viewer">Viewer</span></td>
+                            <td>1 saat önce</td>
+                            <td class="user-actions">
+                                <i class="fas fa-edit"></i>
+                                <i class="fas fa-trash"></i>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Zeynep Şahin</td>
+                            <td>zeynep@company.com</td>
+                            <td><span class="user-role role-editor">Editor</span></td>
+                            <td>3 saat önce</td>
+                            <td class="user-actions">
+                                <i class="fas fa-edit"></i>
+                                <i class="fas fa-trash"></i>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="form-actions">
+                    <button class="cancel-btn">İptal</button>
+                    <button class="save-btn"><i class="fas fa-save"></i> Yetkileri Güncelle</button>
+                </div>
+            </div>
+
+            <!-- Backup Tab (gizli) -->
+            <div class="settings-form-card" id="backup-tab" style="display: none;">
+                <div class="form-header">
+                    <h2><i class="fas fa-database"></i> Yedekleme ve Geri Yükleme</h2>
+                    <span class="section-desc">Veritabanı yedekleri ve sistem kurtarma</span>
+                </div>
+
+                <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+                    <button class="save-btn"><i class="fas fa-play"></i> Şimdi Yedekle</button>
+                    <button class="cancel-btn"><i class="fas fa-undo"></i> Geri Yükle</button>
+                </div>
+
+                <div class="backup-list">
+                    <div class="backup-item">
+                        <div class="backup-info">
+                            <i class="fas fa-database"></i>
+                            <div class="backup-details">
+                                <h4>Otomatik Yedekleme - 2024-03-10</h4>
+                                <span>2 saat önce</span>
+                            </div>
+                        </div>
+                        <div class="backup-size">2.4 GB</div>
+                        <div class="backup-actions">
+                            <button><i class="fas fa-download"></i></button>
+                            <button><i class="fas fa-undo"></i></button>
+                            <button><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="backup-item">
+                        <div class="backup-info">
+                            <i class="fas fa-database"></i>
+                            <div class="backup-details">
+                                <h4>Manuel Yedekleme - 2024-03-09</h4>
+                                <span>1 gün önce</span>
+                            </div>
+                        </div>
+                        <div class="backup-size">2.3 GB</div>
+                        <div class="backup-actions">
+                            <button><i class="fas fa-download"></i></button>
+                            <button><i class="fas fa-undo"></i></button>
+                            <button><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="backup-item">
+                        <div class="backup-info">
+                            <i class="fas fa-database"></i>
+                            <div class="backup-details">
+                                <h4>Otomatik Yedekleme - 2024-03-08</h4>
+                                <span>2 gün önce</span>
+                            </div>
+                        </div>
+                        <div class="backup-size">2.3 GB</div>
+                        <div class="backup-actions">
+                            <button><i class="fas fa-download"></i></button>
+                            <button><i class="fas fa-undo"></i></button>
+                            <button><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="toggle-group">
+                    <div>
+                        <div class="toggle-label">Otomatik Yedekleme</div>
+                        <div class="toggle-desc">Her gün 03:00'te otomatik yedekle</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button class="cancel-btn">İptal</button>
+                    <button class="save-btn"><i class="fas fa-save"></i> Ayarları Kaydet</button>
+                </div>
+            </div>
+
+            <!-- Alt Bilgi -->
+            <div class="footer-info">
+                <div class="version-info">
+                    <span class="version-tag"><i class="fas fa-code-branch"></i> v1.0.4-beta</span>
+                    <span><i class="far fa-calendar"></i> Son güncelleme: 10 Mart 2024</span>
+                </div>
+                <div class="license-status">
+                    <span class="license-badge"><i class="fas fa-check-circle"></i> Kurumsal Lisans</span>
+                    <button class="update-btn"><i class="fas fa-sync-alt"></i> Güncelleme Kontrolü</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+    // Tab geçişleri
+    const menuItems = document.querySelectorAll('.settings-menu-item');
+    const tabs = {
+        general: document.getElementById('general-tab'),
+        scanning: document.getElementById('scanning-tab'),
+        integrations: document.getElementById('integrations-tab'),
+        users: document.getElementById('users-tab'),
+        backup: document.getElementById('backup-tab')
+    };
+
+    menuItems.forEach(item => {
+        item.addEventListener('click', function () {
+            // Aktif menü öğesini güncelle
+            menuItems.forEach(m => m.classList.remove('active'));
+            this.classList.add('active');
+
+            // İlgili tab'ı göster
+            const tabId = this.dataset.tab;
+            Object.values(tabs).forEach(tab => {
+                if (tab) tab.style.display = 'none';
+            });
+            if (tabs[tabId]) {
+                tabs[tabId].style.display = 'block';
+            }
+        });
+    });
+
+    // Kaydet butonları
+    document.querySelectorAll('.save-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const formHeader = this.closest('.settings-form-card').querySelector('.form-header h2').textContent;
+            alert(formHeader + ' ayarları başarıyla kaydedildi!');
+        });
+    });
+
+    // İptal butonları
+    document.querySelectorAll('.cancel-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            if (confirm('Değişiklikleriniz kaydedilmeyecek. Devam etmek istediğinizden emin misiniz?')) {
+                // Formu temizle veya eski haline döndür
+            }
+        });
+    });
+
+    // API anahtarı kopyalama
+    document.querySelectorAll('.api-btn .fa-copy').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const input = this.closest('.api-key-input').querySelector('input');
+            input.select();
+            document.execCommand('copy');
+            alert('API anahtarı panoya kopyalandı!');
+        });
+    });
+
+    // Güncelleme kontrolü
+    document.querySelector('.update-btn').addEventListener('click', function () {
+        alert('Güncelleme kontrolü yapılıyor...\nMevcut sürüm: v1.0.4-beta\nEn son sürüm: v1.0.4-beta (güncel)');
+    });
+
+    // Kullanıcı işlemleri
+    document.querySelectorAll('.user-actions .fa-edit').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const row = this.closest('tr');
+            const userName = row.cells[0].textContent;
+            alert(userName + ' kullanıcısının yetkileri düzenleniyor...');
+        });
+    });
+
+    document.querySelectorAll('.user-actions .fa-trash').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const row = this.closest('tr');
+            const userName = row.cells[0].textContent;
+            if (confirm(userName + ' kullanıcısını silmek istediğinizden emin misiniz?')) {
+                row.remove();
+            }
+        });
+    });
+
+    // Yeni kullanıcı ekle
+    document.querySelector('.save-btn .fa-user-plus')?.closest('button').addEventListener('click', function () {
+        alert('Yeni kullanıcı ekleme formu açılıyor...');
+    });
+
+    // Şimdi yedekle
+    document.querySelectorAll('.save-btn .fa-play').forEach(btn => {
+        btn?.closest('button').addEventListener('click', function () {
+            alert('Manuel yedekleme başlatılıyor...');
+        });
+    });
+
+    // Geri yükle
+    document.querySelectorAll('.cancel-btn .fa-undo').forEach(btn => {
+        btn?.closest('button').addEventListener('click', function () {
+            alert('Sistem geri yükleme sihirbazı açılıyor...');
+        });
+    });
+</script>
+</script>
+{% endblock %}

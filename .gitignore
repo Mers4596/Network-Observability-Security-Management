@@ -1,0 +1,30 @@
+### Python ###
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+### Veritabanı (Database) ###
+# Eğer SQLite kullanıyorsan database dosyasını gizlemek iyi bir fikirdir
+*.sqlite3
+db.sqlite3
+# Diğer olası veritabanı dosyaları
+*.db
+*.db-journal
+
+### IDE ve Editörler ###
+.vscode/
+.idea/
+*.swp
+*.swo
+
+### İşletim Sistemi ###
+.DS_Store
+Thumbs.db
+
+### Gizli Bilgiler ###
+# API anahtarları veya şifrelerin olduğu dosyalar
+.env

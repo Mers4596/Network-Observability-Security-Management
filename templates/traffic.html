@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}Trafik Analizi | Nebula Net{% endblock %}
+
+{% block extra_css %}
+<!-- Traffic CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/traffic.css') }}">
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="traffic-content">
+    <div class="content-header">
+        <div class="content-title">
+            Trafik Analizi
+            <span style="font-size: 14px; color: #00D1FF; margin-left: 10px;">Anlık 2.4 Gbps</span>
+        </div>
+        <div class="time-range">
+            <span class="time-btn active">Son 1 Saat</span>
+            <span class="time-btn">Son 24 Saat</span>
+            <span class="time-btn">Son 7 Gün</span>
+            <span class="time-btn">Son 30 Gün</span>
+        </div>
+    </div>
+
+    <!-- KPI Kartları -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <i class="fas fa-arrow-down"></i> Toplam İndirme
+            </div>
+            <div class="kpi-value" id="kpiTotalDownload">0</div>
+            <div class="kpi-trend trend-up">
+                <i class="fas fa-arrow-up"></i> %<span id="trendDownload">0</span>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <i class="fas fa-arrow-up"></i> Toplam Yükleme
+            </div>
+            <div class="kpi-value" id="kpiTotalUpload">0</div>
+            <div class="kpi-trend trend-up">
+                <i class="fas fa-arrow-up"></i> %<span id="trendUpload">0</span>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <i class="fas fa-clock"></i> En Yüksek Trafik
+            </div>
+            <div class="kpi-value" id="kpiPeakTime">-</div>
+            <div class="kpi-trend" id="kpiPeakValue">0</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <i class="fas fa-globe"></i> Aktif Bağlantı
+            </div>
+            <div class="kpi-value" id="kpiActiveConns">0</div>
+            <div class="kpi-trend trend-down">
+                <i class="fas fa-arrow-down"></i> %<span id="trendConns">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid Container - Sankey + Protokol -->
+    <div class="grid-container">
+        <!-- Sankey Diagram -->
+        <div class="traffic-card">
+            <div class="card-header">
+                <h3><i class="fas fa-project-diagram"></i> Protokol Akış Şeması</h3>
+                <span class="card-badge">Sankey Diagram</span>
+            </div>
+            <div class="sankey-container">
+                <div class="sankey-left">
+                    <div class="sankey-node tcp">
+                        <i class="fas fa-exchange-alt"></i> TCP
+                        <div style="font-size: 11px; color: #00D1FF;">1.8 Gbps</div>
+                    </div>
+                    <div class="sankey-node udp">
+                        <i class="fas fa-exchange-alt"></i> UDP
+                        <div style="font-size: 11px; color: #00E676;">480 Mbps</div>
+                    </div>
+                    <div class="sankey-node icmp">
+                        <i class="fas fa-exchange-alt"></i> ICMP
+                        <div style="font-size: 11px; color: #FFB74D;">120 Mbps</div>
+                    </div>
+                </div>
+                <div class="sankey-middle">
+                    <div class="sankey-lines">
+                        <div class="sankey-line" style="top: 12%; width: 85%;"></div>
+                        <div class="sankey-line" style="top: 38%; width: 70%;"></div>
+                        <div class="sankey-line" style="top: 64%; width: 55%;"></div>
+                        <div class="sankey-line"
+                            style="top: 12%; width: 45%; left: 45%; background: linear-gradient(90deg, #00E676, #00D1FF);">
+                        </div>
+                        <div class="sankey-line"
+                            style="top: 38%; width: 60%; left: 30%; background: linear-gradient(90deg, #00E676, #00D1FF);">
+                        </div>
+                        <div class="sankey-line"
+                            style="top: 64%; width: 75%; left: 15%; background: linear-gradient(90deg, #FFB74D, #00D1FF);">
+                        </div>
+                    </div>
+                    <div class="sankey-flow" style="top: 20%; left: 10%;"></div>
+                    <div class="sankey-flow"
+                        style="top: 60%; left: 20%; background: linear-gradient(90deg, #00E676, #FFB74D);">
+                    </div>
+                </div>
+                <div class="sankey-right">
+                    <div class="sankey-node">
+                        <i class="fas fa-server"></i> WEB-SRV
+                        <div style="font-size: 11px; color: #00D1FF;">890 Mbps</div>
+                    </div>
+                    <div class="sankey-node">
+                        <i class="fas fa-database"></i> DB-SRV
+                        <div style="font-size: 11px; color: #00E676;">670 Mbps</div>
+                    </div>
+                    <div class="sankey-node">
+                        <i class="fas fa-cloud"></i> CLOUD
+                        <div style="font-size: 11px; color: #FFB74D;">840 Mbps</div>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; font-size: 12px; color: #A0A6B0; margin-top: 10px;">
+                TCP/UDP/ICMP → Hedef Cihazlar
+            </div>
+        </div>
+
+        <!-- Protokol Dağılımı -->
+        <div class="traffic-card">
+            <div class="card-header">
+                <h3><i class="fas fa-chart-pie"></i> Protokol Dağılımı</h3>
+                <span class="card-badge">Donut Chart</span>
+            </div>
+            <div class="protocol-container">
+                <div class="protocol-chart">
+                    <canvas id="protocolChart" width="160" height="160"></canvas>
+                </div>
+                <div class="protocol-legend">
+                    <div class="legend-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="legend-color" style="background: #00D1FF;"></span>
+                            <span class="protocol-name">HTTP/HTTPS</span>
+                        </div>
+                        <span class="protocol-value">1.2 Gbps <span class="protocol-percent">(%48)</span></span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="legend-color" style="background: #00E676;"></span>
+                            <span class="protocol-name">SSH</span>
+                        </div>
+                        <span class="protocol-value">380 Mbps <span class="protocol-percent">(%15)</span></span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="legend-color" style="background: #FFB74D;"></span>
+                            <span class="protocol-name">DNS</span>
+                        </div>
+                        <span class="protocol-value">240 Mbps <span class="protocol-percent">(%10)</span></span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="legend-color" style="background: #FF4B5C;"></span>
+                            <span class="protocol-name">SMTP</span>
+                        </div>
+                        <span class="protocol-value">180 Mbps <span class="protocol-percent">(%7)</span></span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="legend-color" style="background: #A0A6B0;"></span>
+                            <span class="protocol-name">Diğer</span>
+                        </div>
+                        <span class="protocol-value">500 Mbps <span class="protocol-percent">(%20)</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Isı Haritası Takvimi -->
+    <div class="traffic-card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h3><i class="fas fa-calendar-alt"></i> Yoğunluk Isı Haritası</h3>
+            <span class="card-badge">Peak Times</span>
+        </div>
+        <div class="heatmap-calendar">
+            <div class="heatmap-header">
+                <span style="font-size: 13px;">Mart 2026</span>
+                <div class="heatmap-days">
+                    <span>Pt</span><span>Sa</span><span>Ça</span><span>Pe</span><span>Cu</span><span>Ct</span><span>Pz</span>
+                </div>
+            </div>
+            <div class="heatmap-grid">
+                <!-- Her saat dilimi için satır -->
+                <div class="heatmap-row">
+                    <span class="hour-label">00:00</span>
+                    <div class="heatmap-cells">
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                        <div class="heatmap-cell" style="background: #151921;"></div>
+                        <div class="heatmap-cell" style="background: #151921;"></div>
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <span class="hour-label">04:00</span>
+                    <div class="heatmap-cells">
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                        <div class="heatmap-cell" style="background: #151921;"></div>
+                        <div class="heatmap-cell" style="background: #2A2F3A;"></div>
+                        <div class="heatmap-cell" style="background: #2A2F3A;"></div>
+                        <div class="heatmap-cell" style="background: #151921;"></div>
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <span class="hour-label">08:00</span>
+                    <div class="heatmap-cells">
+                        <div class="heatmap-cell" style="background: #2A2F3A;"></div>
+                        <div class="heatmap-cell" style="background: #FFB74D;"></div>
+                        <div class="heatmap-cell" style="background: #FF8F4A;"></div>
+                        <div class="heatmap-cell" style="background: #FF6B4A;"></div>
+                        <div class="heatmap-cell" style="background: #FF4B5C;"></div>
+                        <div class="heatmap-cell" style="background: #FF8F4A;"></div>
+                        <div class="heatmap-cell" style="background: #2A2F3A;"></div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <span class="hour-label">12:00</span>
+                    <div class="heatmap-cells">
+                        <div class="heatmap-cell" style="background: #FF4B5C;"></div>
+                        <div class="heatmap-cell" style="background: #FF6B4A;"></div>
+                        <div class="heatmap-cell" style="background: #FF8F4A;"></div>
+                        <div class="heatmap-cell" style="background: #FFB74D;"></div>
+                        <div class="heatmap-cell" style="background: #FF8F4A;"></div>
+                        <div class="heatmap-cell" style="background: #FF4B5C;"></div>
+                        <div class="heatmap-cell" style="background: #FF6B4A;"></div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <span class="hour-label">16:00</span>
+                    <div class="heatmap-cells">
+                        <div class="heatmap-cell" style="background: #FF8F4A;"></div>
+                        <div class="heatmap-cell" style="background: #FF6B4A;"></div>
+                        <div class="heatmap-cell" style="background: #FF4B5C;"></div>
+                        <div class="heatmap-cell" style="background: #FF6B4A;"></div>
+                        <div class="heatmap-cell" style="background: #FF8F4A;"></div>
+                        <div class="heatmap-cell" style="background: #FFB74D;"></div>
+                        <div class="heatmap-cell" style="background: #2A2F3A;"></div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <span class="hour-label">20:00</span>
+                    <div class="heatmap-cells">
+                        <div class="heatmap-cell" style="background: #2A2F3A;"></div>
+                        <div class="heatmap-cell" style="background: #151921;"></div>
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                        <div class="heatmap-cell" style="background: #0B0E14;"></div>
+                        <div class="heatmap-cell" style="background: #151921;"></div>
+                        <div class="heatmap-cell" style="background: #2A2F3A;"></div>
+                        <div class="heatmap-cell" style="background: #151921;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="heatmap-legend">
+                <div class="legend-gradient">
+                    <span>Düşük</span>
+                    <div class="gradient-bar"></div>
+                    <span>Yüksek</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Traffic Logs (Dinamik) -->
+    <div class="traffic-card" style="grid-column: span 2;">
+        <div class="card-header">
+            <h3><i class="fas fa-list-ul"></i> Son Trafik Aktivitesi</h3>
+            <span class="card-badge">Canlı Stream</span>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="text-align: left; color: #A0A6B0; font-size: 12px; border-bottom: 1px solid #2A2F3A;">
+                    <th style="padding: 10px;">Zaman</th>
+                    <th style="padding: 10px;">Kaynak Cihaz</th>
+                    <th style="padding: 10px;">Hedef IP</th>
+                    <th style="padding: 10px;">Port</th>
+                    <th style="padding: 10px;">Boyut</th>
+                </tr>
+            </thead>
+            <tbody id="liveTrafficBody" style="font-size: 13px; color: #E0E0E0;">
+                <!-- JavaScript ile dolacak -->
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /**
+     * traffic.html - Real-time Data Binding
+     * Connects UI components to appStore state.
+     */
+
+    let protocolChart = null;
+
+    function initTrafficPage() {
+        console.log('[Traffic] Initializing data binding...');
+
+        // Subscribe to appStore updates
+        appStore.subscribe((state) => {
+            updateTrafficKPIs(state.trafficStats);
+            updateProtocolChart(state.trafficStats);
+            updateSankeyNodes(state.trafficStats);
+            updateHeatmap(state.trafficHeatmap);
+            renderTrafficLogs(state.trafficLogs);
+        });
+    }
+
+    function updateTrafficKPIs(stats) {
+        if (!stats) return;
+
+        // Unified snake_case access
+        document.getElementById('kpiTotalDownload').innerHTML = `${appStore.formatBandwidth(stats.download_bps || 0)}`;
+        document.getElementById('kpiTotalUpload').innerHTML = `${appStore.formatBandwidth(stats.upload_bps || 0)}`;
+        document.getElementById('kpiActiveConns').textContent = (stats.active_connections_count || 0).toLocaleString();
+
+        const peakElem = document.getElementById('kpiPeakValue');
+        if (peakElem) peakElem.textContent = stats.peak_traffic_value || '0 Mbps';
+
+        // Trends (Real data from dashboardStats)
+        const dashStats = appStore.state.dashboardStats || {};
+        const dlTrend = dashStats.download_trend || 0;
+        const ulTrend = dashStats.upload_trend || 0;
+
+        const trendDLDiv = document.getElementById('trendDownload')?.parentElement;
+        if (trendDLDiv) {
+            trendDLDiv.className = dlTrend >= 0 ? 'kpi-trend trend-up' : 'kpi-trend trend-down';
+            trendDLDiv.innerHTML = `<i class="fas fa-arrow-${dlTrend >= 0 ? 'up' : 'down'}"></i> ${appStore.formatBandwidth(Math.abs(dlTrend))}`;
+        }
+
+        const trendULDiv = document.getElementById('trendUpload')?.parentElement;
+        if (trendULDiv) {
+            trendULDiv.className = ulTrend >= 0 ? 'kpi-trend trend-up' : 'kpi-trend trend-down';
+            trendULDiv.innerHTML = `<i class="fas fa-arrow-${ulTrend >= 0 ? 'up' : 'down'}"></i> ${appStore.formatBandwidth(Math.abs(ulTrend))}`;
+        }
+    }
+
+    function updateProtocolChart(stats) {
+        const ctx = document.getElementById('protocolChart')?.getContext('2d');
+        if (!ctx || !stats || !stats.protocol_dist) return;
+
+        const labels = Object.keys(stats.protocol_dist);
+        const data = Object.values(stats.protocol_dist);
+        const colors = {
+            'TCP': '#00D1FF',
+            'UDP': '#00E676',
+            'ICMP': '#FFB74D'
+        };
+        const bgColors = labels.map(l => colors[l] || '#A0A6B0');
+
+        if (protocolChart) {
+            protocolChart.data.labels = labels;
+            protocolChart.data.datasets[0].data = data;
+            protocolChart.data.datasets[0].backgroundColor = bgColors;
+            protocolChart.update();
+        } else {
+            protocolChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: bgColors,
+                        borderWidth: 0,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    cutout: '65%',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    }
+                }
+            });
+        }
+
+        // Update Legend values
+        const total = data.reduce((a, b) => a + b, 0) || 1;
+        // Using static mapping for legend items if they exist
+        labels.forEach(proto => {
+            const row = Array.from(document.querySelectorAll('.legend-item')).find(el => el.textContent.includes(proto));
+            if (row) {
+                const valSpan = row.querySelector('.protocol-value');
+                const percent = Math.round((stats.protocol_dist[proto] / total) * 100);
+                if (valSpan) valSpan.innerHTML = `${appStore.formatBandwidth(stats.protocol_dist[proto] || 0)} <span class="protocol-percent">(%${percent})</span>`;
+            }
+        });
+    }
+
+    function updateSankeyNodes(stats) {
+        if (!stats || !stats.protocol_dist) return;
+
+        // Map protocol counts to nodes
+        const nodes = document.querySelectorAll('.sankey-left .sankey-node');
+        nodes.forEach(node => {
+            const protoLine = node.textContent.trim().split('\n')[0].trim();
+            const valDiv = node.querySelector('div');
+            if (valDiv && stats.protocol_dist[protoLine]) {
+                valDiv.textContent = `${appStore.formatBandwidth(stats.protocol_dist[protoLine] || 0)}`;
+            }
+        });
+
+        // Map top destinations if provided
+        if (stats.top_destinations) {
+            const destNodes = document.querySelectorAll('.sankey-right .sankey-node');
+            stats.top_destinations.forEach((dest, i) => {
+                if (destNodes[i]) {
+                    destNodes[i].innerHTML = `<i class="fas fa-server"></i> ${dest.dest_ip} <div style="font-size: 11px; color: #00E676;">${(dest.volume / 1e6).toFixed(1)} MB</div>`;
+                }
+            });
+        }
+    }
+
+    function updateHeatmap(heatmapData) {
+        if (!heatmapData || !heatmapData.length) return;
+
+        const cells = document.querySelectorAll('.heatmap-cell');
+
+        // Reset all to base color
+        cells.forEach(c => c.style.background = '#0B0E14');
+
+        heatmapData.forEach(data => {
+            const hour = parseInt(data.hour);
+            // Mapping to the grid rows (00, 04, 08, 12, 16, 20)
+            const rowIdx = Math.floor(hour / 4);
+            const row = document.querySelectorAll('.heatmap-row')[rowIdx];
+            if (row) {
+                const rowCells = row.querySelectorAll('.heatmap-cell');
+                // For better visualization, we spread the data across the cells of the row
+                const cellIdx = hour % 7;
+                const cell = rowCells[cellIdx];
+                if (cell) {
+                    const intensity = data.intensity || 0;
+                    // Color scale from #0B0E14 to #00D1FF (Blue for intensity)
+                    cell.style.background = `rgba(0, 209, 255, ${intensity + 0.2})`;
+                    cell.style.boxShadow = `0 0 ${intensity * 10}px rgba(0, 209, 255, 0.3)`;
+                    cell.title = `Hour ${hour}:00 - Count: ${data.count} - Intensity: ${Math.round(intensity * 100)}%`;
+                }
+            }
+        });
+    }
+
+    function renderTrafficLogs(logs) {
+        const tbody = document.getElementById('liveTrafficBody');
+        if (!tbody || !logs) return;
+
+        tbody.innerHTML = logs.map(log => {
+            const isFlagged = log.flagged ? 'style="background: rgba(255, 75, 92, 0.1);"' : '';
+            const flagBadge = log.flagged ? '<span style="color: #FF4B5C; margin-left: 5px;"><i class="fas fa-exclamation-triangle"></i></span>' : '';
+
+            return `
+                <tr ${isFlagged} style="border-bottom: 1px solid #1A1F2B;">
+                    <td style="padding: 10px; color: #00D1FF;">${log.timestamp}</td>
+                    <td style="padding: 10px; font-weight: 600;">${log.hostname} ${flagBadge}</td>
+                    <td style="padding: 10px;">${log.dest_ip}</td>
+                    <td style="padding: 10px;"><span style="background: #2A2F3A; padding: 2px 6px; border-radius: 4px;">${log.dest_port}</span></td>
+                    <td style="padding: 10px;">${(log.bytes_sent / 1024).toFixed(1)} KB</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Run on boot
+    document.addEventListener('DOMContentLoaded', initTrafficPage);
+
+    // Time range buttons
+    document.querySelectorAll('.time-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+</script>
+</script>
+{% endblock %}

@@ -1,0 +1,526 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Nebula Net{% endblock %}
+
+{% block extra_css %}
+<!-- Dashboard CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/dashboard.css') }}">
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    @keyframes pulse-red {
+        0% {
+            box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.4);
+        }
+
+        70% {
+            box-shadow: 0 0 0 15px rgba(255, 23, 68, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(255, 23, 68, 0);
+        }
+    }
+
+    .pulse-active {
+        animation: pulse-red 2s infinite;
+        border: 1px solid var(--critical-red) !important;
+    }
+
+    .toast-notification {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background: rgba(11, 14, 20, 0.9);
+        border: 1px solid var(--critical-red);
+        border-left: 5px solid var(--critical-red);
+        padding: 20px;
+        border-radius: 8px;
+        color: white;
+        z-index: 1000;
+        backdrop-filter: blur(10px);
+        transform: translateX(120%);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .toast-notification.active {
+        transform: translateX(0);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-title">DASHBOARD COMMAND <span class="live-badge" style="margin-left: 10px; font-size: 14px;"><i
+            class="fas fa-circle"></i> CANLI</span></div>
+<!-- KPI Kartları (Üst Satır) -->
+<div class="grid-container">
+    <!-- Cihaz Durumu -->
+    <div class="glass-card kpi-card">
+        <div class="card-header"
+            style="color: var(--neon-cyan); font-size: 12px; letter-spacing: 1px; margin-bottom: 15px;">
+            <i class="fas fa-network-wired"></i> NODE STATUS
+        </div>
+        <div class="card-value" style="font-size: 32px; font-weight: 700; margin-bottom: 10px;"><span
+                id="totalDevicesCount">0</span> <span style="font-size: 14px; color: var(--text-muted);">/ <span
+                    id="totalDevicesStock">0</span></span></div>
+        <div class="card-detail">
+            <span class="status-pill pill-online"><i class="fas fa-circle" style="font-size: 6px;"></i> <span
+                    id="onlineDevicesCount">0</span> ACTIVE</span>
+            <canvas class="mini-chart" id="deviceChart" style="height: 40px; margin-top: 10px;"></canvas>
+        </div>
+    </div>
+
+    <!-- Trafik Yükü -->
+    <div class="glass-card kpi-card">
+        <div class="card-header"
+            style="color: var(--neon-cyan); font-size: 12px; letter-spacing: 1px; margin-bottom: 15px;">
+            <i class="fas fa-wave-square"></i> NETWORK LOAD
+        </div>
+        <div class="card-value" id="dashboardTrafficLoad"
+            style="font-size: 32px; font-weight: 700; margin-bottom: 10px;"></div>
+        <div class="card-detail">
+            <div style="color: #00e676; font-size: 12px; font-weight: 600; margin-bottom: 4px;">↑ 12% VOLATILITY</div>
+            <canvas class="mini-chart" id="trafficChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Tehdit Seviyesi -->
+    <div class="glass-card kpi-card">
+        <div class="card-header"
+            style="color: var(--critical-red); font-size: 12px; letter-spacing: 1px; margin-bottom: 15px;">
+            <i class="fas fa-shield-virus"></i> RISK MAGNITUDE
+        </div>
+        <div class="threat-level" style="margin-bottom: 15px;" id="threatLevelContainer">
+            <span class="status-pill pill-critical" id="threatLabel"
+                style="font-size: 18px; padding: 10px 20px;">-</span>
+        </div>
+        <div class="card-detail">
+            <span id="activeThreatsCount"
+                style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">0
+                Active Threat</span>
+        </div>
+    </div>
+
+    <!-- Son Tarama -->
+    <div class="glass-card kpi-card">
+        <div class="card-header"
+            style="color: var(--text-muted); font-size: 12px; letter-spacing: 1px; margin-bottom: 15px;">
+            <i class="fas fa-history"></i> SYSTEM HEARTBEAT
+        </div>
+        <div class="card-value"
+            style="display: flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 600;" id="lastScanTime">
+            -
+            <span style="color: var(--neon-cyan);"><i class="fas fa-check-circle"></i></span>
+        </div>
+        <div class="card-detail" style="margin-top: 15px;">
+            <span style="font-size: 11px; color: var(--text-muted); letter-spacing: 1px;">ALL SUB-SYSTEMS NOMINAL</span>
+        </div>
+    </div>
+</div>
+
+<!-- Orta Satır -->
+<div class="middle-row">
+    <!-- Ana Grafik -->
+    <div class="glass-card main-chart-card">
+        <div class="card-header" style="margin-bottom: 24px; display: flex; justify-content: space-between;">
+            <span style="font-size: 14px; letter-spacing: 1px;"><i class="fas fa-shield-virus"
+                    style="color: var(--critical-red); margin-right: 10px;"></i> RISK TRENDS (24H ANALYTICS)</span>
+            <div style="display: flex; gap: 15px; font-size: 10px;">
+                <span style="color: var(--critical-red);"><i class="fas fa-circle"></i> CRITICAL</span>
+                <span style="color: var(--warning-orange);"><i class="fas fa-circle"></i> HIGH</span>
+                <span style="color: var(--neon-cyan);"><i class="fas fa-circle"></i> MEDIUM</span>
+            </div>
+        </div>
+        <div class="chart-container" style="height: 250px;">
+            <canvas id="riskHistoryChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Top Talkers -->
+    <div class="glass-card top-talkers-card">
+        <div class="card-header" style="margin-bottom: 24px;">
+            <span style="font-size: 14px; letter-spacing: 1px;"><i class="fas fa-tachometer-alt"
+                    style="color: var(--neon-cyan); margin-right: 10px;"></i> TOP TALKERS</span>
+        </div>
+        <div id="topTalkersContainer" style="display: flex; flex-direction: column; gap: 0;">
+            <div style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px;">
+                <i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Loading traffic data...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alt Satır: Olay Özeti Tablosu -->
+<div id="securityLogsCard" class="glass-card table-card" style="padding: 0; transition: all 0.3s ease;">
+    <div class="card-header"
+        style="padding: 24px; border-bottom: 1px solid var(--border-glass); display: flex; justify-content: space-between;">
+        <span style="font-size: 14px; letter-spacing: 1px; color: white;"><i class="fas fa-shield-virus"
+                style="color: var(--critical-red); margin-right: 10px;"></i> COMMAND SECURITY LOGS</span>
+        <a href="/alerts"
+            style="color: var(--neon-cyan); font-size: 11px; text-decoration: none; letter-spacing: 1px;">VIEW ALL DATA
+            →</a>
+    </div>
+    <div style="padding: 20px;">
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>PRIORITY</th>
+                    <th>EVENT</th>
+                    <th>SOURCE ORIGIN</th>
+                    <th>TIMESTAMP</th>
+                </tr>
+            </thead>
+            <tbody id="dashboardAlertsBody">
+                <!-- Data injected here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ── Dashboard Script ──────────────────────────────────────────────────────
+    let deviceChart;
+    let riskChart;
+    let trafficMiniChart;
+
+    // ── 1. State subscriber: Device KPIs + Threat level + Charts ─────────────
+    appStore.subscribe((state) => {
+        const devices = state.devices;
+
+        // Device counts
+        const total = devices.length;
+        const online = devices.filter(d =>
+            ['online', 'warning', 'Under Observation'].includes(d.status)).length;
+        const offline = devices.filter(d => d.status === 'offline').length;
+
+        document.getElementById('totalDevicesCount').textContent = total;
+        document.getElementById('totalDevicesStock').textContent = total;
+        document.getElementById('onlineDevicesCount').textContent = online;
+
+        const el = document.getElementById('offlineDevicesCount');
+        if (el) el.textContent = offline;
+
+        // Threat stats
+        const primaryThreats = devices.filter(d => d.risk_level > 80 && d.status !== 'Isolated').length;
+        const impactedThreats = devices.filter(d => d.shadow_risk_flag).length;
+        const totalThreats = primaryThreats + impactedThreats;
+
+        document.getElementById('activeThreatsCount').textContent =
+            totalThreats > 0
+                ? `${primaryThreats} Primary / ${impactedThreats} Impacted`
+                : '0 Active Threats';
+
+        const label = document.getElementById('threatLabel');
+        if (totalThreats === 0) { label.className = 'status-pill pill-online'; label.textContent = 'NOMINAL'; }
+        else if (totalThreats < 3) { label.className = 'status-pill pill-warning'; label.textContent = 'ELEVATED'; }
+        else { label.className = 'status-pill pill-critical'; label.textContent = 'CRITICAL'; }
+
+        // Heartbeat: last_seen
+        if (devices.length > 0) {
+            const latest = [...devices]
+                .map(d => new Date(d.last_seen))
+                .sort((a, b) => b - a)[0];
+            const diffMins = Math.floor((Date.now() - latest) / 60000);
+            const scanEl = document.getElementById('lastScanTime');
+            if (scanEl) {
+                scanEl.childNodes[0].textContent =
+                    diffMins < 60
+                        ? `${diffMins} min ago `
+                        : latest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        // Device-type doughnut chart
+        updateDeviceChart(devices);
+
+        // Risk History Chart
+        updateRiskChart(state.riskHistory || []);
+
+        // ── 2. Network Load KPI (from /api/stats) ────────────────────────────
+        const stats = state.dashboardStats || {};
+        const trafficLoad = document.getElementById('dashboardTrafficLoad');
+        if (trafficLoad && stats.download_rate) {
+            const parts = stats.download_rate.split(' ');
+            trafficLoad.innerHTML =
+                `${parts[0]} <span style="font-size:14px;color:var(--text-muted);">${parts[1] || 'Mbps'}</span>`;
+        }
+        const volEl = document.querySelector('.card-detail > div[style*="color: #00e676"]');
+        if (volEl && stats.volatility_label) {
+            const sign = (stats.network_volatility || 0) >= 0 ? '↑' : '↓';
+            const color = (stats.network_volatility || 0) >= 0 ? '#00e676' : '#ff4b2b';
+            volEl.style.color = color;
+            volEl.textContent = `${sign} ${stats.volatility_label}`;
+        }
+
+        // ── 3. Traffic Volatility area chart (from /api/traffic-timeline) ────
+        const timeline = state.trafficTimeline;
+        if (timeline && timeline.length > 0 && mainTrafficChart) {
+            const labels = timeline.map(r => r.hour);
+            const dlData = timeline.map(r => Math.round(r.bytes_out / 1000));  // → KB
+            const ulData = timeline.map(r => Math.round(r.bytes_in / 1000));
+
+            mainTrafficChart.data.labels = labels;
+            mainTrafficChart.data.datasets[0].data = dlData;
+            mainTrafficChart.data.datasets[1].data = ulData;
+            mainTrafficChart.update('none');   // instant, no animation
+        }
+
+        // ── 4. Top Talkers cards (from /api/top-talkers) ─────────────────────
+        const talkers = state.topTalkers || [];
+        const talkersEl = document.getElementById('topTalkersContainer');
+        if (talkersEl && talkers.length > 0) {
+            const statusColors = {
+                online: 'var(--neon-cyan)', warning: 'var(--warning-orange)',
+                offline: 'rgba(255,255,255,0.2)', Isolated: 'var(--critical-red)',
+                'Under Scan': 'var(--neon-cyan)', 'Under Observation': 'var(--warning-orange)'
+            };
+            talkersEl.innerHTML = talkers.map((t, i) => {
+                const color = statusColors[t.status] || 'rgba(255,255,255,0.3)';
+                const pct = t.pct_of_max || 0;
+                return `
+                    <div class="talker-item"
+                        style="background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;
+                               border-left:3px solid ${color};margin-bottom:${i < talkers.length - 1 ? '12px' : '0'};">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                            <span style="font-weight:600;">${t.hostname}</span>
+                            <span style="color:${color};font-weight:700;">${t.bandwidth_label}</span>
+                        </div>
+                        <div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+                            <div style="width:${pct}%;height:100%;background:${color};
+                                        box-shadow:0 0 8px ${color};transition:width 0.6s ease;"></div>
+                        </div>
+                    </div>`;
+            }).join('');
+        } else if (talkersEl && talkers.length === 0) {
+            talkersEl.innerHTML =
+                '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px;">No traffic data yet...</div>';
+        }
+    });
+
+    // ── Device-type doughnut chart ────────────────────────────────────────────
+    function updateDeviceChart(devices) {
+        const types = devices.reduce((acc, d) => { acc[d.type] = (acc[d.type] || 0) + 1; return acc; }, {});
+        const typeLabels = Object.keys(types).map(t => t.charAt(0).toUpperCase() + t.slice(1));
+        const typeData = Object.values(types);
+
+        const ctx1 = document.getElementById('deviceChart');
+        if (!ctx1) return;
+        if (deviceChart) deviceChart.destroy();
+        deviceChart = new Chart(ctx1.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: typeLabels,
+                datasets: [{
+                    data: typeData,
+                    backgroundColor: ['#00f2ff', '#00e676', '#f39c12', '#ff4b2b', 'rgba(255,255,255,0.1)'],
+                    borderWidth: 0,
+                    borderRadius: 50
+                }]
+            },
+            options: {
+                cutout: '80%', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // ── Initialize static charts once on load ─────────────────────────────────
+    window.addEventListener('load', function () {
+        // Network-load mini sparkline (illustrative, driven by store on update)
+        const ctx2 = document.getElementById('trafficChart');
+        if (ctx2) {
+            trafficMiniChart = new Chart(ctx2.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: ['', '', '', '', '', ''],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0, 0], borderColor: '#00D1FF',
+                        backgroundColor: 'transparent', tension: 0.3,
+                        pointRadius: 0, borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: false } }
+                }
+            });
+        }
+
+        // Main 24H area chart — initialise with empty data; store will fill it
+        const ctxMain = document.getElementById('mainTrafficChart');
+        if (ctxMain) {
+            mainTrafficChart = new Chart(ctxMain.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`),
+                    datasets: [
+                        {
+                            label: t('chart_download') || 'Download',
+                            data: new Array(24).fill(0),
+                            borderColor: '#00f2ff', backgroundColor: 'rgba(0,242,255,0.05)',
+                            fill: true, tension: 0.4, pointRadius: 0
+                        },
+                        {
+                            label: t('chart_upload') || 'Upload',
+                            data: new Array(24).fill(0),
+                            borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.02)',
+                            fill: true, tension: 0.4, pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, resizeDelay: 200,
+                    layout: { padding: { left: 10, right: 10, top: 10, bottom: 10 } },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: 'rgba(255,255,255,0.5)',
+                                font: { family: 'Outfit', size: 10 }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.02)' },
+                            ticks: {
+                                color: 'rgba(255,255,255,0.3)', font: { size: 9 },
+                                maxTicksLimit: 8
+                            }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.02)' },
+                            ticks: {
+                                color: 'rgba(255,255,255,0.3)', font: { size: 9 },
+                                callback: v => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+
+    function updateRiskChart(history) {
+        const ctx = document.getElementById('riskHistoryChart').getContext('2d');
+        const labels = history.map(h => h.hour);
+        const critical = history.map(h => h.critical_count);
+        const high = history.map(h => h.high_count);
+        const medium = history.map(h => h.medium_count);
+
+        if (riskChart) {
+            riskChart.data.labels = labels;
+            riskChart.data.datasets[0].data = critical;
+            riskChart.data.datasets[1].data = high;
+            riskChart.data.datasets[2].data = medium;
+            riskChart.update('none');
+            return;
+        }
+
+        riskChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Critical',
+                        data: critical,
+                        borderColor: '#ff1744',
+                        backgroundColor: 'rgba(255, 23, 68, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'High',
+                        data: high,
+                        borderColor: '#ff9100',
+                        backgroundColor: 'rgba(255, 145, 0, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Medium',
+                        data: medium,
+                        borderColor: '#00e5ff',
+                        backgroundColor: 'rgba(0, 229, 255, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10 }, stepSize: 1 }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Real-Time WebSocket Alerts ──────────────────────────────────────────
+    document.addEventListener('ws_alert', function (e) {
+        const alert = e.detail;
+
+        // 1. Trigger Pulse
+        const card = document.getElementById('securityLogsCard');
+        if (card) {
+            card.classList.add('pulse-active');
+            setTimeout(() => card.classList.remove('pulse-active'), 6000);
+        }
+
+        // 2. Show Toast
+        showAlertToast(alert);
+    });
+
+    function showAlertToast(alert) {
+        let toast = document.getElementById('criticalToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'criticalToast';
+            toast.className = 'toast-notification';
+            document.body.appendChild(toast);
+        }
+
+        toast.innerHTML = `
+            <div style="background: var(--critical-red); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div>
+                <div style="font-weight: 700; color: var(--critical-red); font-size: 13px; letter-spacing: 1px; margin-bottom: 4px;">CRITICAL ALERT RECEIVED</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${alert.message}</div>
+            </div>
+        `;
+
+        toast.classList.add('active');
+        setTimeout(() => toast.classList.remove('active'), 5000);
+    }
+
+    // ── Language change: update chart labels (Stubbed as chart is now generic) ─────
+    document.addEventListener('languagechange', function (e) {
+        if (!riskChart) return;
+        // No labels to translate in this generic multi-risk chart for now
+    });
+</script>
+{% endblock %}
