@@ -74,7 +74,10 @@ const appStore = {
                     if (key === 'safe_zones') {
                         this.state.safe_zones = data.map(z => z.ip_range);
                     } else if (key === 'settings') {
-                        this.state.settings = data;
+                        this.state.settings = data.governance || {};
+                        this.state.users = data.users || [];
+                    } else if (key === 'topology') {
+                        this.state.topology = data.links || [];
                     } else {
                         this.state[key] = data;
                     }
@@ -161,33 +164,56 @@ const appStore = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(ruleData)
             });
-            if (res.ok) await this.loadData();
-        } catch (err) { console.error('Add rule failed:', err); }
+            if (res.ok) {
+                showToast('Rule successfully created', 'success');
+                await this.loadData();
+            } else {
+                showToast('Failed to create rule', 'error');
+            }
+        } catch (err) { showToast('Network error while adding rule', 'error'); }
     },
 
     async toggleRule(ruleId) {
         try {
             const res = await fetch(`/api/rules/${ruleId}/toggle`, { method: 'PATCH' });
-            if (res.ok) await this.loadData();
-        } catch (err) { console.error('Toggle rule failed:', err); }
+            if (res.ok) {
+                showToast('Rule status updated', 'info');
+                await this.loadData();
+            } else {
+                showToast('Failed to update rule status', 'error');
+            }
+        } catch (err) { showToast('Network error while toggling rule', 'error'); }
     },
 
     async deleteRule(ruleId) {
         try {
             const res = await fetch(`/api/rules/${ruleId}`, { method: 'DELETE' });
-            if (res.ok) await this.loadData();
-        } catch (err) { console.error('Delete rule failed:', err); }
+            if (res.ok) {
+                showToast('Rule deleted successfully', 'success');
+                await this.loadData();
+            } else {
+                showToast('Failed to delete rule', 'error');
+            }
+        } catch (err) { showToast('Network error while deleting rule', 'error'); }
     },
 
     async updateSettings(settingsData) {
         try {
+            // Need to preserve existing settings to send full patch payload
+            const currentSettings = this.state.settings || {};
+            const payload = { ...currentSettings, ...settingsData };
             const res = await fetch('/api/settings', {
-                method: 'POST',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(settingsData)
+                body: JSON.stringify(payload)
             });
-            if (res.ok) await this.loadData();
-        } catch (err) { console.error('Update settings failed:', err); }
+            if (res.ok) {
+                showToast('Ayarlar başarıyla kaydedildi (DB Onaylandı)', 'success');
+                await this.loadData();
+            } else {
+                showToast('Failed to save settings', 'error');
+            }
+        } catch (err) { showToast('Network error while saving settings', 'error'); }
     },
 
     async updateRuleSchedule(ruleId, schedule) {
@@ -199,6 +225,71 @@ const appStore = {
             });
             if (res.ok) await this.loadData();
         } catch (err) { console.error('Update schedule failed:', err); }
+    },
+
+    // ── User Management Helpers ──────────────────────────────────────────────
+    async addUser(userData) {
+        try {
+            const res = await fetch('/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userData)
+            });
+            if (res.ok) {
+                if (typeof showToast !== 'undefined') showToast('Kullanıcı başarıyla eklendi', 'success');
+                else alert('Kullanıcı başarıyla eklendi');
+                await this.loadData();
+            } else {
+                const error = await res.json();
+                if (typeof showToast !== 'undefined') showToast(error.error || 'Failed to add user', 'error');
+                else alert(error.error || 'Failed to add user');
+            }
+        } catch (err) { 
+            if (typeof showToast !== 'undefined') showToast('Network error while adding user', 'error'); 
+            else alert('Network error while adding user');
+        }
+    },
+
+    async updateUser(userId, updates) {
+        try {
+            const res = await fetch(`/api/users/${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+            if (res.ok) {
+                if (typeof showToast !== 'undefined') showToast('Kullanıcı başarıyla güncellendi', 'success');
+                else alert('Kullanıcı başarıyla güncellendi');
+                await this.loadData();
+            } else {
+                const error = await res.json();
+                if (typeof showToast !== 'undefined') showToast(error.error || 'Failed to update user', 'error');
+                else alert(error.error || 'Failed to update user');
+            }
+        } catch (err) {
+            if (typeof showToast !== 'undefined') showToast('Network error while updating user', 'error');
+            else alert('Network error while updating user');
+        }
+    },
+
+    async deleteUser(userId) {
+        try {
+            const res = await fetch(`/api/users/${userId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                if (typeof showToast !== 'undefined') showToast('Kullanıcı silindi', 'success');
+                else alert('Kullanıcı silindi');
+                await this.loadData();
+            } else {
+                const error = await res.json();
+                if (typeof showToast !== 'undefined') showToast(error.error || 'Failed to delete user', 'error');
+                else alert(error.error || 'Failed to delete user');
+            }
+        } catch (err) {
+            if (typeof showToast !== 'undefined') showToast('Network error while deleting user', 'error');
+            else alert('Network error while deleting user');
+        }
     }
 };
 
@@ -246,32 +337,36 @@ window.refreshUI = function (state) {
     if (ruleCount) ruleCount.textContent = `${state.accessRules.length} Kural`;
 
     if (ruleList) {
-        ruleList.innerHTML = state.accessRules.map(rule => {
-            const badgeClass = rule.action === 'allow' ? 'allow' : 'deny';
-            const badgeLabel = rule.action === 'allow' ? 'ALLOW' : 'DENY';
-            return `
-                <div class="rule-item" draggable="true" data-priority="${rule.priority}">
-                    <div class="rule-header">
-                        <span class="rule-title">${rule.title}</span>
-                        <span class="rule-badge ${badgeClass}">${badgeLabel}</span>
-                    </div>
-                    <div class="rule-desc">
-                        <i class="fas fa-arrow-right"></i> ${rule.description || rule.dest_port || 'All Traffic'}<br>
-                        <span style="font-size:11px;">${rule.source_cidr || 'Any'} → ${rule.dest_cidr || 'Any'}</span>
-                    </div>
-                    <div class="rule-footer">
-                        <div class="rule-actions">
-                            <button class="rule-btn" onclick="appStore.deleteRule(${rule.id})" style="color:#FF4B5C;"><i class="fas fa-trash"></i></button>
-                            <button class="rule-btn"><i class="fas fa-edit"></i></button>
+        if (!state.accessRules || state.accessRules.length === 0) {
+            ruleList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;">No Data Found</div>';
+        } else {
+            ruleList.innerHTML = state.accessRules.map(rule => {
+                const actionUpper = (rule.action || 'Monitor').toUpperCase();
+                const badgeClass = actionUpper === 'ALLOW' ? 'allow' : (actionUpper === 'BLOCK' ? 'deny' : 'monitor');
+                return `
+                    <div class="rule-item" draggable="true" data-priority="${rule.priority || 99}">
+                        <div class="rule-header">
+                            <span class="rule-title">${rule.rule_name || 'Undefined Rule'}</span>
+                            <span class="rule-badge ${badgeClass}">${actionUpper}</span>
                         </div>
-                        <label class="switch rule-toggle">
-                            <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="appStore.toggleRule(${rule.id})">
-                            <span class="slider"></span>
-                        </label>
+                        <div class="rule-desc">
+                            <i class="fas fa-arrow-right"></i> Protocol: ${rule.protocol || 'All'}<br>
+                            <span style="font-size:11px;">${rule.source || 'Any'} → ${rule.destination || 'Any'}</span>
+                        </div>
+                        <div class="rule-footer">
+                            <div class="rule-actions">
+                                <button class="rule-btn" onclick="appStore.deleteRule(${rule.id})" style="color:#FF4B5C;"><i class="fas fa-trash"></i></button>
+                                <button class="rule-btn"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <label class="switch rule-toggle">
+                                <input type="checkbox" ${rule.status === 'Enabled' ? 'checked' : ''} onchange="appStore.toggleRule(${rule.id})">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                     </div>
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('');
+        }
     }
 };
 

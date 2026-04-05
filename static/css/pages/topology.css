@@ -93,6 +93,17 @@
     }
 }
 
+/* Forensic Focus Strobe */
+@keyframes focus-strobe {
+    0%, 100% { border-color: var(--neon-cyan); box-shadow: 0 0 20px var(--neon-cyan-glow); }
+    50% { border-color: #FFFFFF; box-shadow: 0 0 40px #FFFFFF; transform: scale(1.2); }
+}
+
+.focus-strobe {
+    animation: focus-strobe 0.4s ease-in-out infinite !important;
+    z-index: 1000 !important;
+}
+
 /* Topoloji Haritası - Internal Grid only */
 .topology-map {
     height: calc(100vh - 200px);
@@ -111,8 +122,6 @@
 /* Cihaz İkonları */
 .device-icon {
     position: absolute;
-    width: 70px;
-    height: 70px;
     background: #0B0E14;
     border-radius: 16px;
     display: flex;

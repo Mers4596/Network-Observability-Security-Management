@@ -314,15 +314,18 @@
             const title = prompt("Kural Başlığı:", "Yeni Firewall Kuralı");
             if (!title) return;
 
-            const action = prompt("Eylem (allow/deny):", "deny");
-            const port = prompt("Hedef Port (örn: 80, 443):", "Any");
+            const action = prompt("Eylem (Allow/Block/Monitor):", "Block");
+            const port = prompt("Hedef Port (örn: TCP/80, 443):", "Any");
 
             const newRule = {
-                title: title,
-                action: action || 'deny',
-                dest_port: port || 'Any',
+                rule_name: title,
+                rule_type: 'Firewall',
+                action: action || 'Block',
+                destination: port || 'Any',
                 priority: 50,
-                protocol: 'TCP'
+                protocol: 'All',
+                status: 'Enabled',
+                source: 'Any'
             };
 
             await appStore.addRule(newRule);
@@ -334,13 +337,13 @@
         // Initialize from state
         appStore.subscribe((state) => {
             if (state.settings && state.settings.guest_wifi_enabled !== undefined) {
-                guestWifiToggle.checked = state.settings.guest_wifi_enabled === 'true';
+                guestWifiToggle.checked = state.settings.guest_wifi_enabled === 1;
             }
         });
 
         guestWifiToggle.addEventListener('change', async function (e) {
             console.log('Misafir ağı ' + (this.checked ? 'açıldı' : 'kapatıldı'));
-            await appStore.updateSettings({ guest_wifi_enabled: this.checked });
+            await appStore.updateSettings({ guest_wifi_enabled: this.checked ? 1 : 0 });
         });
 
         // Zaman Bazlı Erişim Grid Etkileşimi

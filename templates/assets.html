@@ -5,9 +5,113 @@
 {% block extra_css %}
 <!-- Assets CSS -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/assets.css') }}">
+<style>
+    /* Side Drawer Styles */
+    .side-drawer {
+        position: fixed;
+        right: -450px;
+        top: 0;
+        width: 450px;
+        height: 100%;
+        background: rgba(10, 15, 28, 0.95);
+        backdrop-filter: blur(25px);
+        border-left: 1px solid var(--border-glass);
+        z-index: 10000;
+        transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        padding: 40px;
+        box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+        overflow-y: auto;
+    }
+
+    .side-drawer.open {
+        right: 0;
+    }
+
+    .drawer-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: none;
+    }
+
+    .drawer-overlay.active {
+        display: block;
+    }
+
+    /* Risk Badges */
+    .risk-badge {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .risk-low {
+        background: rgba(0, 230, 118, 0.1);
+        color: #00e676;
+        border: 1px solid rgba(0, 230, 118, 0.3);
+    }
+
+    .risk-medium {
+        background: rgba(243, 156, 18, 0.1);
+        color: #f39c12;
+        border: 1px solid rgba(243, 156, 18, 0.3);
+    }
+
+    .risk-high {
+        background: rgba(255, 75, 43, 0.1);
+        color: var(--critical-red);
+        border: 1px solid rgba(255, 75, 43, 0.3);
+    }
+
+    /* Deep Link Highlight */
+    @keyframes pulse-highlight {
+        0% { background: rgba(0, 242, 255, 0.05); }
+        50% { background: rgba(0, 242, 255, 0.2); box-shadow: inset 0 0 15px rgba(0, 242, 255, 0.2); }
+        100% { background: rgba(0, 242, 255, 0.05); }
+    }
+
+    .highlight-row {
+        animation: pulse-highlight 2s infinite ease-in-out;
+        border: 1px solid var(--neon-cyan) !important;
+    }
+
+    .breadcrumb-link {
+        color: var(--neon-cyan);
+        text-decoration: none;
+        font-size: 11px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+    .breadcrumb-link:hover {
+        opacity: 1;
+        text-decoration: underline;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
+<!-- Side Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="side-drawer" id="sideDrawer">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <span style="font-size: 12px; letter-spacing: 2px; color: var(--text-muted);">ASSET INTELLIGENCE</span>
+        <button onclick="closeDrawer()"
+            style="background: none; border: none; color: white; cursor: pointer; font-size: 20px;"><i
+                class="fas fa-times"></i></button>
+    </div>
+    <div id="drawerContent">
+        <!-- Injected via JS -->
+    </div>
+</div>
+
 <div class="assets-content">
     <!-- Header ve Butonlar -->
     <div class="content-header"
@@ -18,14 +122,14 @@
                     id="totalDevicesCount">0</span></span>
         </div>
         <div class="header-actions" style="display: flex; gap: 15px;">
-            <button class="action-btn scan-btn">
-                <i class="fas fa-satellite-dish"></i> INITIATE SCAN
+            <button class="action-btn scan-btn" onclick="batchScan()">
+                <i class="fas fa-satellite-dish"></i> INITIATE NETWORK SCAN
             </button>
             <button class="action-btn pending-btn"
                 style="border-color: var(--warning-orange); color: var(--warning-orange);">
                 <i class="fas fa-shield-virus"></i> PENDING APPROVAL
-                <span class="pending-badge"
-                    style="background: var(--warning-orange); color: var(--bg-obsidian); padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-size: 10px;">12</span>
+                <span class="pending-badge" id="pendingApprovalBadge"
+                    style="background: var(--warning-orange); color: var(--bg-obsidian); padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-size: 10px;">0</span>
             </button>
         </div>
     </div>
@@ -40,8 +144,8 @@
                 <span>APPROVED NODES</span>
             </div>
             <div class="stat-number" id="statsApproved" style="font-size: 32px; font-weight: 700;">0</div>
-            <div class="stat-footer" style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Awaiting
-                intrusion attempts</div>
+            <div class="stat-footer" style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Active network
+                participants</div>
         </div>
         <div class="glass-card stat-card">
             <div class="stat-header"
@@ -81,25 +185,27 @@
             <i class="fas fa-filter"></i>
             <select id="typeFilter">
                 <option value="all">Tüm Tipler</option>
-                <option value="pc">PC</option>
-                <option value="server">Server</option>
-                <option value="mobile">Mobil</option>
-                <option value="printer">Yazıcı</option>
-                <option value="network">Ağ Cihazı</option>
+                <option value="Workstation">PC / Workstation</option>
+                <option value="Server">Server</option>
+                <option value="Mobile">Mobil</option>
+                <option value="Printer">Yazıcı</option>
+                <option value="Network">Ağ Cihazı</option>
+                <option value="IoT">IoT</option>
             </select>
         </div>
         <div class="filter-group">
             <i class="fas fa-circle"></i>
             <select id="statusFilter">
                 <option value="all">Tüm Durumlar</option>
-                <option value="online">Çevrimiçi</option>
-                <option value="offline">Çevrimdışı</option>
-                <option value="pending">Onay Bekleyen</option>
+                <option value="Online">Çevrimiçi</option>
+                <option value="Offline">Çevrimdışı</option>
+                <option value="Pending">Onay Bekleyen</option>
+                <option value="Isolated">İzole Edilmiş</option>
             </select>
         </div>
         <div class="filter-group">
             <i class="fas fa-search"></i>
-            <input type="text" placeholder="Cihaz adı..." id="nameFilter">
+            <input type="text" placeholder="Cihaz adı, IP veya MAC..." id="nameFilter">
         </div>
         <span class="clear-filters" onclick="clearFilters()">
             <i class="fas fa-times"></i> Temizle
@@ -115,7 +221,7 @@
             <div class="table-controls" style="display: flex; gap: 10px;">
                 <button class="action-btn" style="padding: 6px 12px; font-size: 11px;"><i
                         class="fas fa-file-export"></i> EXPORT</button>
-                <button class="action-btn" style="padding: 6px 12px; font-size: 11px;"><i class="fas fa-sync"></i>
+                <button class="action-btn" style="padding: 6px 12px; font-size: 11px;" onclick="appStore.loadData()"><i class="fas fa-sync"></i>
                     SYNC</button>
             </div>
         </div>
@@ -128,9 +234,9 @@
                         <th onclick="sortTable(1)">NODE IDENTIFIER</th>
                         <th onclick="sortTable(2)">NETWORK IP</th>
                         <th onclick="sortTable(3)">HW ADDRESS</th>
-                        <th onclick="sortTable(4)">TYPE</th>
-                        <th onclick="sortTable(5)">KERNEL/OS</th>
-                        <th onclick="sortTable(6)">DISCOVERY</th>
+                        <th onclick="sortTable(4)">DEPT / HIERARCHY</th>
+                        <th onclick="sortTable(5)">RISK</th>
+                        <th onclick="sortTable(6)">KERNEL/OS</th>
                         <th>COMMAND</th>
                     </tr>
                 </thead>
@@ -156,66 +262,94 @@
 
 {% block scripts %}
 <script>
-    // Global arama (eğer topbar id=globalSearch ise veya dashboard daki ile çakışırsa)
-    // base.html 'deki arama çubuğu id'sizdi, ona "id=globalSearch" ekleyebilirsiniz veya sayfa içi tablo aramasını ayırabilirsiniz
-    // Ama biz mevcut js yapısını koruyalım.
-
-    // Örnek cihaz verileri store.js'den alınıyor
-    // Initial load assignment for sorting/filtering. It gets populated after loadData finishes.
     let devices = [];
+    let activeDeviceId = null;
 
     // Subscribe to state changes so local devices array stays in sync
     appStore.subscribe((state) => {
         devices = state.devices;
         updateKPIs(state.devices);
-        // Only run initial render table if we haven't rendered yet or if filtering isn't active
-        // Alternatively, update rendering
-        // In this case, we allow store.js to do the base rendering, but we can hook in our existing filter
         filterTable();
+
+        // Handle URL Deep-link only once or if devices change
+        handleDeepLink();
     });
 
-    // KPI Kartlarını güncelle
+    // KPI Kartlarını güncelle (Dinamik state filter)
     function updateKPIs(devices) {
-        const approvedCount = devices.filter(d => d.status === 'online').length;
-        const pendingCount = devices.filter(d => d.status === 'pending').length;
-        const compliantCount = devices.filter(d => d.risk_level <= 30).length;
+        if (!devices || devices.length === 0) return;
 
-        // En son görülme zamanını bul
-        let lastSeenDate = '-';
-        if (devices.length > 0) {
-            const sortedDates = [...devices].map(d => new Date(d.last_seen)).sort((a, b) => b - a);
-            const latest = sortedDates[0];
+        const approvedCount = devices.filter(d => (d.status || '').toLowerCase() === 'online').length;
+        const pendingCount = devices.filter(d => (d.status || '').toLowerCase() === 'pending').length;
+        
+        // Dynamic Compliance Logic: risk_level < 60
+        const lowRiskDevices = devices.filter(d => (d.risk_level || 0) < 60);
+        const compliancePercentage = Math.round((lowRiskDevices.length / devices.length) * 100);
+
+        // En son görülme zamanını bul (Math.max logic)
+        let lastSeenDisplay = '-';
+        const validDates = devices
+            .map(d => d.last_seen ? new Date(d.last_seen) : null)
+            .filter(d => d && !isNaN(d.getTime()));
+
+        if (validDates.length > 0) {
+            const latest = new Date(Math.max(...validDates));
             const now = new Date();
-            const diffMs = now - latest;
-            const diffMins = Math.floor(diffMs / 60000);
-            lastSeenDate = diffMins < 60 ? `${diffMins} dk` : (latest.toLocaleDateString() === now.toLocaleDateString() ? latest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : latest.toLocaleDateString());
+            const diffSecs = Math.floor((now - latest) / 1000);
+
+            if (diffSecs < 60) {
+                lastSeenDisplay = `${diffSecs}s ago`;
+            } else if (diffSecs < 3600) {
+                lastSeenDisplay = `${Math.floor(diffSecs / 60)}m ago`;
+            } else {
+                lastSeenDisplay = latest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
         }
 
+        // DOM Update
         document.getElementById('totalDevicesCount').textContent = devices.length;
         document.getElementById('statsApproved').textContent = approvedCount;
         document.getElementById('statsPending').textContent = pendingCount;
-        document.getElementById('statsCompliant').textContent = compliantCount;
-        document.getElementById('statsLastSeen').textContent = lastSeenDate;
+        document.getElementById('statsCompliant').textContent = `${compliancePercentage}%`;
+        document.getElementById('statsLastSeen').textContent = lastSeenDisplay;
 
         // Onay bekleyen badge güncelle
-        const pendingBadge = document.querySelector('.pending-badge');
+        const pendingBadge = document.getElementById('pendingApprovalBadge');
         if (pendingBadge) pendingBadge.textContent = pendingCount;
     }
 
-    // We attach a global render function so store.js can call it if needed
-    window._assetsFilterRender = function () {
-        filterTable();
-    };
-
-    // Tip ikonları
-    const typeIcons = {
-        pc: { icon: 'fa-desktop', class: 'type-pc' },
-        server: { icon: 'fa-database', class: 'type-server' },
-        mobile: { icon: 'fa-mobile-alt', class: 'type-mobile' },
-        printer: { icon: 'fa-print', class: 'type-printer' },
-        network: { icon: 'fa-network-wired', class: 'type-network' },
-        iot: { icon: 'fa-microchip', class: 'type-iot' }
-    };
+    // Deep Link Logic: Handle /assets?id=dev-xxx
+    let deepLinkHandled = false;
+    function handleDeepLink() {
+        if (deepLinkHandled || devices.length === 0) return;
+        
+        const params = new URLSearchParams(window.location.search);
+        const targetId = params.get('id');
+        
+        if (targetId) {
+            console.log("[DeepLink] Targeting device:", targetId);
+            const device = devices.find(d => d.id === targetId);
+            if (device) {
+                // 1. Filter the table to this device
+                document.getElementById('nameFilter').value = device.hostname;
+                filterTable();
+                
+                // 2. Open Detail Drawer
+                openDrawer(device.id);
+                
+                // 3. Mark row (the filter renders the table, so we need to find the row)
+                setTimeout(() => {
+                    const row = document.querySelector(`tr[data-id="${device.id}"]`);
+                    if (row) {
+                        row.classList.add('highlight-row');
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 100);
+                
+                deepLinkHandled = true;
+            }
+        }
+    }
 
     // Status classes for pills
     const statusPillClasses = {
@@ -232,100 +366,301 @@
         tbody.innerHTML = '';
 
         filteredDevices.forEach(device => {
-            const row = document.createElement('tr');
+            const riskValue = device.risk_level || 0;
+            let riskClass = 'risk-low';
+            let riskLabel = 'LOW';
+            if (riskValue > 70) { riskClass = 'risk-high'; riskLabel = 'HIGH'; }
+            else if (riskValue > 30) { riskClass = 'risk-medium'; riskLabel = 'MEDIUM'; }
 
-            // Onay bekleyen badge kontrolü
-            const pendingBadge = device.status === 'pending' ? '<span class="pending-approval"><i class="fas fa-clock"></i> Onay Bekliyor</span>' : '';
+            const row = document.createElement('tr');
+            row.dataset.id = device.id;
 
             row.innerHTML = `
-                    <td>
-                        <span class="status-pill ${statusPillClasses[device.status] || 'pill-isolated'}">
-                            <i class="fas fa-circle" style="font-size: 6px;"></i>
-                            ${device.status.toUpperCase()}
-                        </span>
-                    </td>
-                    <td>
-                        <strong style="color: white; font-weight: 600;">${device.hostname}</strong>
-                        ${device.status === 'pending' ? '<br><span style="font-size: 10px; color: var(--warning-orange);">ONAY BEKLİYOR</span>' : ''}
-                    </td>
-                    <td style="color: var(--neon-cyan); font-family: monospace; font-size: 13px;">${device.ip_address}</td>
-                    <td><span style="font-family: monospace; color: var(--text-muted);">${device.mac_address}</span></td>
-                    <td style="font-size: 13px; color: var(--text-primary);">
-                        <i class="fas ${typeIcons[device.type]?.icon || 'fa-question'}" style="margin-right: 8px; color: var(--neon-cyan);"></i>
-                        ${device.type.toUpperCase()}
-                    </td>
-                    <td style="font-size: 13px;">${device.os}</td>
-                    <td style="color: var(--text-muted); font-size: 12px;">${device.discovery_date}</td>
-                    <td>
-                        ${device.status === 'pending' ?
-                    '<button class="action-btn" style="padding: 6px 12px; font-size: 11px; border-color: #00e676; color: #00e676;" onclick="appStore.updateDeviceStatus(\'' + device.id + '\', \'online\')"><i class="fas fa-check"></i> APPROVE</button>' :
-                    `<button class="action-btn" style="padding: 6px 12px; font-size: 11px;" onclick="viewDetails('${device.mac_address}')"><i class="fas fa-info-circle"></i> DETAIL</button>
-                     <button class="action-btn" style="padding: 6px 12px; font-size: 11px; border-color: #00D1FF; color: #00D1FF; margin-left: 5px;" onclick="appStore.scanDevice('${device.id}')"><i class="fas fa-search"></i> SCAN</button>
-                     <button class="action-btn" style="padding: 6px 12px; font-size: 11px; border-color: #ff3366; color: #ff3366; margin-left: 5px;" onclick="appStore.updateDeviceStatus('${device.id}', 'Isolated')"><i class="fas fa-ban"></i> ISOLATE</button>`}
-                    </td>
-                `;
+                <td>
+                    <span class="status-pill ${statusPillClasses[device.status] || 'pill-isolated'}">
+                        <i class="fas fa-circle" style="font-size: 6px;"></i>
+                        ${device.status.toUpperCase()}
+                    </span>
+                </td>
+                <td>
+                    <strong style="color: white; font-weight: 600;">${device.hostname}</strong>
+                    ${device.status === 'pending' ? '<br><span style="font-size: 10px; color: var(--warning-orange);">ONAY BEKLİYOR</span>' : ''}
+                </td>
+                <td style="color: var(--neon-cyan); font-family: monospace; font-size: 13px;">${device.ip_address}</td>
+                <td><span style="font-family: monospace; color: var(--text-muted); font-size: 12px;">${device.mac_address}</span></td>
+                <td>
+                    <div style="font-size: 12px;">${(device.department || 'General').toUpperCase()}</div>
+                    ${device.parent_id ? `<a href="#" class="breadcrumb-link" onclick="filterByParent('${device.parent_id}')"><i class="fas fa-level-up-alt"></i> ${device.parent_id}</a>` : '<span style="opacity:0.3;font-size:10px;">ROOT</span>'}
+                </td>
+                <td>
+                    <span class="risk-badge ${riskClass}">${riskLabel}</span>
+                </td>
+                <td style="font-size: 12px; color: var(--text-muted);">${device.os_kernel || 'Unknown'}</td>
+                <td>
+                    ${device.status === 'pending' ?
+                        `<button class="action-btn" style="padding: 6px 12px; font-size: 11px; border-color: #00e676; color: #00e676;" onclick="deviceAction('approve', '${device.id}', '${device.hostname}')"><i class="fas fa-check"></i> APPROVE</button>` :
+                        `<button class="action-btn" style="padding: 6px 12px; font-size: 11px;" onclick="openDrawer('${device.id}')"><i class="fas fa-info-circle"></i> DETAIL</button>
+                         <button class="action-btn" style="padding: 6px 12px; font-size: 11px; border-color: #00D1FF; color: #00D1FF; margin-left: 5px;" onclick="deviceAction('scan', '${device.id}', '${device.hostname}')"><i class="fas fa-search"></i> SCAN</button>`}
+                </td>
+            `;
             tbody.appendChild(row);
         });
 
         document.getElementById('pageInfo').textContent = `1-${filteredDevices.length} / ${devices.length}`;
     }
 
-    // Cihaz onaylama
-    async function approveDevice(deviceId, deviceName) {
-        await deviceAction('approve', deviceId, deviceName);
+    // Side Drawer Logic
+    window.openDrawer = async function(deviceId) {
+        const device = devices.find(d => d.id === deviceId);
+        if (!device) return;
+
+        activeDeviceId = deviceId;
+        const drawer = document.getElementById('sideDrawer');
+        const overlay = document.getElementById('drawerOverlay');
+        const content = document.getElementById('drawerContent');
+
+        content.innerHTML = `<div class="loading-placeholder">LOADING ASSET DATA...</div>`;
+        drawer.classList.add('open');
+        overlay.classList.add('active');
+
+        // Fetch findings from scans API
+        let findingsHTML = '<div style="opacity:0.5; font-size:12px;">No recent vulnerability scans found.</div>';
+        try {
+            const res = await fetch(`/api/scans/${deviceId}`);
+            const scans = await res.json();
+            if (scans && scans.length > 0) {
+                findingsHTML = scans.slice(0, 3).map(s => `
+                    <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 2px solid ${s.risk_level_detected > 70 ? 'var(--critical-red)' : 'var(--warning-orange)'}">
+                        <div style="font-size: 11px; color: var(--text-muted);">${s.scan_date}</div>
+                        <div style="font-size: 13px; margin: 4px 0;">${s.vulnerabilities_found}</div>
+                        <div style="font-size: 10px; color: var(--neon-cyan);">${s.open_ports} Open Ports</div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            console.error("Findings fetch failed", e);
+        }
+
+        const riskValue = device.risk_level || 0;
+        const riskColor = riskValue > 70 ? 'var(--critical-red)' : (riskValue > 30 ? 'var(--warning-orange)' : '#00e676');
+
+        content.innerHTML = `
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="width: 80px; height: 80px; background: rgba(0, 242, 255, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; border: 1px solid var(--neon-cyan);">
+                    <i class="fas fa-server" style="font-size: 32px; color: var(--neon-cyan);"></i>
+                </div>
+                <h2 style="margin: 0; font-size: 20px;">${device.hostname}</h2>
+                <div style="color: var(--text-muted); font-size: 12px; margin-top: 5px;">${device.ip_address}</div>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 12px; color: var(--text-muted);">SECURITY RISK SCORE</span>
+                    <span style="font-size: 12px; font-weight: 700; color: ${riskColor};">${riskValue}%</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-bottom: 20px;">
+                    <div style="width: ${riskValue}%; height: 100%; background: ${riskColor}; box-shadow: 0 0 10px ${riskColor};"></div>
+                </div>
+                
+                <div id="riskSparklineContainer" style="margin-top: 20px;">
+                    <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 1px;">7-DAY RISK TREND</div>
+                    <canvas id="riskSparkline" width="370" height="60" style="width: 100%; height: 60px;"></canvas>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+                <div class="glass-card" style="padding: 15px; text-align: center;">
+                    <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 5px;">DEPARTMENT</div>
+                    <div style="font-size: 13px; font-weight: 600;">${(device.department || 'IT').toUpperCase()}</div>
+                </div>
+                <div class="glass-card" style="padding: 15px; text-align: center;">
+                    <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 5px;">MAC ADDRESS</div>
+                    <div style="font-size: 11px; font-family: monospace;">${device.mac_address}</div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h3 style="font-size: 13px; letter-spacing: 1px; margin-bottom: 15px;"><i class="fas fa-bug" style="color: var(--warning-orange);"></i> RECENT FINDINGS</h3>
+                ${findingsHTML}
+            </div>
+
+            <div style="border-top: 1px solid var(--border-glass); padding-top: 25px; display: flex; flex-direction: column; gap: 10px;">
+                <button class="action-btn" style="width: 100%; border-color: var(--neon-cyan); color: var(--neon-cyan);" onclick="deviceAction('scan', '${device.id}', '${device.hostname}')">
+                    <i class="fas fa-search"></i> RETRIGGER SCAN
+                </button>
+                <button class="action-btn" style="width: 100%; border-color: var(--critical-red); color: var(--critical-red);" onclick="deviceAction('isolate', '${device.id}', '${device.hostname}')">
+                    <i class="fas fa-ban"></i> ISOLATE DEVICE
+                </button>
+                <a href="/securityAudit?target=${device.id}" class="action-btn" style="width: 100%; text-decoration: none; text-align: center;">
+                    <i class="fas fa-history"></i> FULL AUDIT TRAIL
+                </a>
+            </div>
+        `;
+
+        // Render Sparkline
+        setTimeout(() => renderRiskSparkline(deviceId), 100);
     }
 
-    // Detay görüntüleme
-    function viewDetails(mac_address) {
-        const device = devices.find(d => d.mac_address === mac_address);
-        if (device) {
-            alert(`
-Cihaz Detayları:
-----------------
-Ad: ${device.hostname}
-IP: ${device.ip_address}
-MAC: ${device.mac_address}
-Tip: ${device.type}
-OS: ${device.os}
-İlk Görülme: ${device.discovery_date}
-Durum: ${device.status}
-                `);
+    async function renderRiskSparkline(deviceId) {
+        const canvas = document.getElementById('riskSparkline');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        try {
+            const res = await fetch(`/api/devices/risk-history/${deviceId}`);
+            const data = await res.json();
+            
+            if (!data || data.length === 0) return;
+
+            // Simple Plotting
+            const width = canvas.width;
+            const height = canvas.height;
+            const padding = 5;
+            const drawWidth = width - (padding * 2);
+            const drawHeight = height - (padding * 2);
+
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw Grid (Optional)
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<4; i++) {
+                const y = padding + (drawHeight / 3) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width-padding, y);
+                ctx.stroke();
+            }
+
+            // Draw Line
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00F2FF';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#00F2FF';
+            ctx.lineJoin = 'round';
+
+            const step = drawWidth / (data.length - 1);
+            data.forEach((val, i) => {
+                const x = padding + (i * step);
+                const y = height - padding - ((val / 100) * drawHeight);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Gradient fill
+            ctx.shadowBlur = 0;
+            const grad = ctx.createLinearGradient(0, 0, 0, height);
+            grad.addColorStop(0, 'rgba(0, 242, 255, 0.15)');
+            grad.addColorStop(1, 'rgba(0, 242, 255, 0)');
+            
+            ctx.lineTo(padding + (data.length - 1) * step, height - padding);
+            ctx.lineTo(padding, height - padding);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Points
+            data.forEach((val, i) => {
+                const x = padding + (i * step);
+                const y = height - padding - ((val / 100) * drawHeight);
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#00F2FF';
+                ctx.fill();
+            });
+
+        } catch (e) {
+            console.error("Sparkline error:", e);
         }
+    }
+
+    window.closeDrawer = function() {
+        document.getElementById('sideDrawer').classList.remove('open');
+        document.getElementById('drawerOverlay').classList.remove('active');
+        activeDeviceId = null;
+        
+        // Remove highlight from all rows
+        document.querySelectorAll('tr').forEach(tr => tr.classList.remove('highlight-row'));
+    }
+
+    // Batch Scan Logic
+    window.batchScan = async function() {
+        const onlineDevices = devices.filter(d => d.status === 'online');
+        if (onlineDevices.length === 0) {
+            showToast('No online devices available for batch scanning.', 'warning');
+            return;
+        }
+
+        showToast(`Batch scan initiated for ${onlineDevices.length} nodes.`, 'info');
+        
+        // Parallel but individual scan calls
+        for (const device of onlineDevices) {
+            fetch(`/api/devices/scan/${device.id}`, { method: 'POST' });
+        }
+        
+        setTimeout(() => {
+            showToast('Network-wide diagnostic scan complete.', 'success');
+            appStore.loadData();
+        }, 2000);
+    }
+
+    // Breadcrumb Filter
+    window.filterByParent = function(parentId) {
+        document.getElementById('nameFilter').value = parentId;
+        filterTable();
     }
 
     // Filtreleme
     function filterTable() {
-        const typeFilter = document.getElementById('typeFilter').value;
-        const statusFilter = document.getElementById('statusFilter').value;
+        const typeFilter = document.getElementById('typeFilter').value.toLowerCase();
+        const statusFilter = document.getElementById('statusFilter').value.toLowerCase();
         const nameFilter = document.getElementById('nameFilter').value.toLowerCase();
 
         const filtered = devices.filter(device => {
-            if (typeFilter !== 'all' && device.type !== typeFilter) return false;
-            if (statusFilter !== 'all' && device.status !== statusFilter) return false;
-            if (nameFilter && !device.hostname.toLowerCase().includes(nameFilter)) return false;
+            // Case-insensitive Type Match
+            if (typeFilter !== 'all' && device.type.toLowerCase() !== typeFilter) return false;
+            
+            // Case-insensitive Status Match
+            if (statusFilter !== 'all' && device.status.toLowerCase() !== statusFilter) return false;
+            
+            // Multi-criteria Keyword Match (Name, IP, MAC, Dept)
+            if (nameFilter) {
+                const searchStr = (
+                    (device.hostname || '') + ' ' + 
+                    (device.ip_address || '') + ' ' + 
+                    (device.mac_address || '') + ' ' + 
+                    (device.department || '')
+                ).toLowerCase();
+                if (!searchStr.includes(nameFilter)) return false;
+            }
             return true;
         });
 
-        renderTable(filtered);
+        if (filtered.length === 0) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <i class="fas fa-search" style="font-size: 24px; margin-bottom: 10px; display: block; opacity: 0.3;"></i>
+                Seçilen kritere uygun cihaz bulunamadı
+            </td></tr>`;
+            document.getElementById('pageInfo').textContent = `0-0 / ${devices.length}`;
+        } else {
+            renderTable(filtered);
+        }
     }
 
     // Sıralama
     let sortDirection = {};
     function sortTable(columnIndex) {
-        const headers = ['status', 'hostname', 'ip_address', 'mac_address', 'type', 'os', 'discovery_date'];
+        const headers = ['status', 'hostname', 'ip_address', 'mac_address', 'department', 'risk_level', 'os_kernel'];
         const key = headers[columnIndex];
 
         sortDirection[key] = sortDirection[key] === 'asc' ? 'desc' : 'asc';
 
         const sorted = [...devices].sort((a, b) => {
-            let valA = a[key];
-            let valB = b[key];
-
-            if (key === 'discovery_date') {
-                valA = new Date(valA);
-                valB = new Date(valB);
-            }
-
+            let valA = a[key] || '';
+            let valB = b[key] || '';
             if (valA < valB) return sortDirection[key] === 'asc' ? -1 : 1;
             if (valA > valB) return sortDirection[key] === 'asc' ? 1 : -1;
             return 0;
@@ -347,40 +682,18 @@ Durum: ${device.status}
     document.getElementById('statusFilter').addEventListener('change', filterTable);
     document.getElementById('nameFilter').addEventListener('input', filterTable);
 
-    // Initial render is triggered via appStore.subscribe
-    // renderTable();
-
     // Onay bekleyen butonu
-    document.querySelector('.pending-btn').addEventListener('click', function () {
+    document.getElementById('pendingApprovalBadge').parentElement.addEventListener('click', function () {
         document.getElementById('statusFilter').value = 'pending';
         filterTable();
     });
 
-    // New Scan butonu
-    document.querySelector('.scan-btn').addEventListener('click', function () {
-        alert('Yeni ağ taraması başlatılıyor...\nBu işlem birkaç dakika sürebilir.');
-    });
-
-    // Sayfalama butonları (demo amaçlı)
-    document.getElementById('prevPage').addEventListener('click', function () {
-        alert('Önceki sayfa (demo)');
-    });
-
-    document.getElementById('nextPage').addEventListener('click', function () {
-        alert('Sonraki sayfa (demo)');
-    });
-
-    // Sayfadaki inputu global arama inputu yerine dinleyelim:
+    // Global Search override for assets
     const searchInput = document.querySelector('.search-container input');
     if (searchInput) {
         searchInput.addEventListener('input', function (e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const filtered = devices.filter(device =>
-                device.hostname.toLowerCase().includes(searchTerm) ||
-                device.ip_address.includes(searchTerm) ||
-                device.mac_address.toLowerCase().includes(searchTerm)
-            );
-            renderTable(filtered);
+            document.getElementById('nameFilter').value = e.target.value;
+            filterTable();
         });
     }
 </script>

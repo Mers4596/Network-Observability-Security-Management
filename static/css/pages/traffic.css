@@ -454,6 +454,14 @@
 }
 
 @media (max-width: 768px) {
+    .side-drawer {
+        width: 100%;
+    }
+
+    .legend {
+        display: none;
+    }
+
     .kpi-grid {
         grid-template-columns: 1fr;
     }

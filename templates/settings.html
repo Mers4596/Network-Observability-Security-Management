@@ -71,17 +71,17 @@
                     <div class="form-label">
                         <i class="fas fa-tag"></i> Sistem Adı
                     </div>
-                    <input type="text" class="form-input" value="Nebula Net - Ana Merkez" placeholder="Sistem adı">
+                    <input type="text" class="form-input" id="setting_systemName" value="Nebula Net - Ana Merkez" placeholder="Sistem adı">
                 </div>
 
                 <div class="form-group">
                     <div class="form-label">
                         <i class="fas fa-language"></i> Dil
                     </div>
-                    <select class="form-select">
-                        <option>Türkçe</option>
-                        <option>English</option>
-                        <option>Deutsch</option>
+                    <select class="form-select" id="setting_language">
+                        <option value="Türkçe">Türkçe</option>
+                        <option value="English">English</option>
+                        <option value="Deutsch">Deutsch</option>
                     </select>
                 </div>
 
@@ -89,10 +89,10 @@
                     <div class="form-label">
                         <i class="fas fa-clock"></i> Zaman Dilimi
                     </div>
-                    <select class="form-select">
-                        <option>Europe/Istanbul (UTC+3)</option>
-                        <option>Europe/London (UTC+0)</option>
-                        <option>America/New_York (UTC-5)</option>
+                    <select class="form-select" id="setting_timezone">
+                        <option value="Europe/Istanbul (UTC+3)">Europe/Istanbul (UTC+3)</option>
+                        <option value="Europe/London (UTC+0)">Europe/London (UTC+0)</option>
+                        <option value="America/New_York (UTC-5)">America/New_York (UTC-5)</option>
                     </select>
                 </div>
 
@@ -120,7 +120,7 @@
 
                 <div class="form-actions">
                     <button class="cancel-btn">İptal</button>
-                    <button class="save-btn"><i class="fas fa-save"></i> Değişiklikleri Kaydet</button>
+                    <button class="save-btn" id="generalTabSaveBtn"><i class="fas fa-save"></i> Değişiklikleri Kaydet</button>
                 </div>
             </div>
 
@@ -135,35 +135,36 @@
                     <div class="form-label">
                         <i class="fas fa-clock"></i> Tarama Sıklığı
                     </div>
-                    <select class="form-select">
-                        <option>1 dakikada bir</option>
-                        <option selected>5 dakikada bir</option>
-                        <option>15 dakikada bir</option>
-                        <option>Saatte bir</option>
+                    <select class="form-select" id="scanFrequency">
+                        <option value="1">1 dakikada bir</option>
+                        <option value="5" selected>5 dakikada bir</option>
+                        <option value="15">15 dakikada bir</option>
+                        <option value="60">Saatte bir</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <div class="form-label">
-                        <i class="fas fa-microscope"></i> Tarama Derinliği
+                        <i class="fas fa-microscope"></i> Tarama Derinliği (Güvenlik Seviyesi)
                     </div>
-                    <select class="form-select">
-                        <option>Hızlı tarama (port 1-1024)</option>
-                        <option selected>Derin tarama (tüm portlar)</option>
-                        <option>Çok derin (port + servis tespiti)</option>
+                    <select class="form-select" id="securityLevel">
+                        <option value="Relaxed">Hızlı tarama (Relaxed)</option>
+                        <option value="Normal" selected>Derin tarama (Normal)</option>
+                        <option value="Strict">Çok derin (Strict)</option>
                     </select>
                 </div>
 
                 <div class="toggle-group">
                     <div>
-                        <div class="toggle-label">Pasif Cihazları Tara</div>
-                        <div class="toggle-desc">Kapalı cihazları da tara</div>
+                        <div class="toggle-label">Otomatik Tarama</div>
+                        <div class="toggle-desc">Ağı periyodik olarak tara</div>
                     </div>
                     <label class="switch">
-                        <input type="checkbox" checked>
+                        <input type="checkbox" id="autoScanToggle" checked>
                         <span class="slider"></span>
                     </label>
                 </div>
+
 
                 <div class="toggle-group">
                     <div>
@@ -193,12 +194,11 @@
                     <div class="api-header">
                         <span class="api-name"><i class="fas fa-shield" style="color: #00D1FF;"></i>
                             Fortinet</span>
-                        <span class="api-status active">Aktif</span>
+                        <span class="api-status inactive">Pasif</span>
                     </div>
                     <div class="api-key-input">
-                        <input type="password" value="ftnt-8a7d6f5e4d3c2b1a" readonly>
-                        <button class="api-btn"><i class="fas fa-copy"></i></button>
-                        <button class="api-btn"><i class="fas fa-sync"></i></button>
+                        <input type="password" value="[ ENCRYPTED / NOT SET ]" readonly>
+                        <button class="api-btn"><i class="fas fa-plus"></i> Ekle</button>
                     </div>
                 </div>
 
@@ -206,12 +206,11 @@
                     <div class="api-header">
                         <span class="api-name"><i class="fas fa-network-wired" style="color: #00E676;"></i>
                             Cisco</span>
-                        <span class="api-status active">Aktif</span>
+                        <span class="api-status inactive">Pasif</span>
                     </div>
                     <div class="api-key-input">
-                        <input type="password" value="cisc-9b8a7c6d5e4f3g2h" readonly>
-                        <button class="api-btn"><i class="fas fa-copy"></i></button>
-                        <button class="api-btn"><i class="fas fa-sync"></i></button>
+                        <input type="password" value="[ ENCRYPTED / NOT SET ]" readonly>
+                        <button class="api-btn"><i class="fas fa-plus"></i> Ekle</button>
                     </div>
                 </div>
 
@@ -241,7 +240,7 @@
                 </div>
 
                 <div style="margin-bottom: 20px;">
-                    <button class="save-btn" style="padding: 10px 20px;"><i class="fas fa-user-plus"></i>
+                    <button class="save-btn" style="padding: 10px 20px;" onclick="addSysUser()"><i class="fas fa-user-plus"></i>
                         Yeni Kullanıcı Ekle</button>
                 </div>
 
@@ -255,47 +254,8 @@
                             <th>İşlem</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>Ahmet Yılmaz</td>
-                            <td>ahmet@company.com</td>
-                            <td><span class="user-role role-admin">Admin</span></td>
-                            <td>2 dk önce</td>
-                            <td class="user-actions">
-                                <i class="fas fa-edit"></i>
-                                <i class="fas fa-trash"></i>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Ayşe Demir</td>
-                            <td>ayse@company.com</td>
-                            <td><span class="user-role role-editor">Editor</span></td>
-                            <td>15 dk önce</td>
-                            <td class="user-actions">
-                                <i class="fas fa-edit"></i>
-                                <i class="fas fa-trash"></i>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Mehmet Kaya</td>
-                            <td>mehmet@company.com</td>
-                            <td><span class="user-role role-viewer">Viewer</span></td>
-                            <td>1 saat önce</td>
-                            <td class="user-actions">
-                                <i class="fas fa-edit"></i>
-                                <i class="fas fa-trash"></i>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Zeynep Şahin</td>
-                            <td>zeynep@company.com</td>
-                            <td><span class="user-role role-editor">Editor</span></td>
-                            <td>3 saat önce</td>
-                            <td class="user-actions">
-                                <i class="fas fa-edit"></i>
-                                <i class="fas fa-trash"></i>
-                            </td>
-                        </tr>
+                    <tbody id="usersListBody">
+                        <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">Sistemde sadece yönetici tanımlı.</td></tr>
                     </tbody>
                 </table>
 
@@ -318,52 +278,8 @@
                 </div>
 
                 <div class="backup-list">
-                    <div class="backup-item">
-                        <div class="backup-info">
-                            <i class="fas fa-database"></i>
-                            <div class="backup-details">
-                                <h4>Otomatik Yedekleme - 2024-03-10</h4>
-                                <span>2 saat önce</span>
-                            </div>
-                        </div>
-                        <div class="backup-size">2.4 GB</div>
-                        <div class="backup-actions">
-                            <button><i class="fas fa-download"></i></button>
-                            <button><i class="fas fa-undo"></i></button>
-                            <button><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-
-                    <div class="backup-item">
-                        <div class="backup-info">
-                            <i class="fas fa-database"></i>
-                            <div class="backup-details">
-                                <h4>Manuel Yedekleme - 2024-03-09</h4>
-                                <span>1 gün önce</span>
-                            </div>
-                        </div>
-                        <div class="backup-size">2.3 GB</div>
-                        <div class="backup-actions">
-                            <button><i class="fas fa-download"></i></button>
-                            <button><i class="fas fa-undo"></i></button>
-                            <button><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-
-                    <div class="backup-item">
-                        <div class="backup-info">
-                            <i class="fas fa-database"></i>
-                            <div class="backup-details">
-                                <h4>Otomatik Yedekleme - 2024-03-08</h4>
-                                <span>2 gün önce</span>
-                            </div>
-                        </div>
-                        <div class="backup-size">2.3 GB</div>
-                        <div class="backup-actions">
-                            <button><i class="fas fa-download"></i></button>
-                            <button><i class="fas fa-undo"></i></button>
-                            <button><i class="fas fa-trash"></i></button>
-                        </div>
+                    <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                        Sistem yedekleri için API entegrasyonu yakında aktif edilecektir.
                     </div>
                 </div>
 
@@ -433,59 +349,130 @@
 
     // Kaydet butonları
     document.querySelectorAll('.save-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const formHeader = this.closest('.settings-form-card').querySelector('.form-header h2').textContent;
-            alert(formHeader + ' ayarları başarıyla kaydedildi!');
+        btn.addEventListener('click', async function () {
+            const tabId = this.closest('.settings-form-card').id;
+            
+            if (tabId === 'scanning-tab') {
+                const scanFreq = parseInt(document.getElementById('scanFrequency').value) || 60;
+                const secLevel = document.getElementById('securityLevel').value || 'Normal';
+                const autoScan = document.getElementById('autoScanToggle').checked ? 1 : 0;
+                
+                await appStore.updateSettings({
+                    scan_frequency: scanFreq,
+                    security_level: secLevel,
+                    auto_scan_enabled: autoScan
+                });
+            } else if (tabId === 'general-tab') {
+                const sysName = document.getElementById('setting_systemName').value;
+                const lang = document.getElementById('setting_language').value;
+                const tz = document.getElementById('setting_timezone').value;
+                
+                await appStore.updateSettings({
+                    system_name: sysName,
+                    default_lang: lang,
+                    timezone: tz
+                });
+            } else {
+                const formHeader = this.closest('.settings-form-card').querySelector('.form-header h2').textContent;
+                if (typeof showToast !== 'undefined') showToast(formHeader + ' ayarları mock olarak kaydedildi!', 'info');
+                else alert(formHeader + ' ayarları mock olarak kaydedildi!');
+            }
         });
     });
+
+    // Populate live settings via appStore
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.appStore) {
+            appStore.subscribe(state => {
+                if (state.settings) {
+                    const freqSelect = document.getElementById('scanFrequency');
+                    const secSelect = document.getElementById('securityLevel');
+                    const autoScanToggle = document.getElementById('autoScanToggle');
+                    
+                    if (freqSelect && state.settings.scan_frequency) {
+                        freqSelect.value = state.settings.scan_frequency.toString();
+                    }
+                    if (secSelect && state.settings.security_level) {
+                        secSelect.value = state.settings.security_level;
+                    }
+                    if (autoScanToggle && state.settings.auto_scan_enabled !== undefined) {
+                        autoScanToggle.checked = state.settings.auto_scan_enabled === 1;
+                    }
+
+                    // General tab bindings
+                    const sysNameInput = document.getElementById('setting_systemName');
+                    const langSelect = document.getElementById('setting_language');
+                    const tzSelect = document.getElementById('setting_timezone');
+
+                    if (sysNameInput && state.settings.system_name && document.activeElement !== sysNameInput) {
+                        sysNameInput.value = state.settings.system_name;
+                    }
+                    if (langSelect && state.settings.default_lang && document.activeElement !== langSelect) {
+                        langSelect.value = state.settings.default_lang;
+                    }
+                    if (tzSelect && state.settings.timezone && document.activeElement !== tzSelect) {
+                        tzSelect.value = state.settings.timezone;
+                    }
+                }
+
+                if (state.users) {
+                    const tbody = document.getElementById('usersListBody');
+                    if (tbody) {
+                        if (state.users.length === 0 || (state.users.length === 1 && state.users[0].id === 1)) {
+                            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">Sistemde sadece yönetici tanımlı.</td></tr>';
+                        }
+                        if (state.users.length > 0 && !(state.users.length === 1 && state.users[0].id === 1)) {
+                            tbody.innerHTML = state.users.map(u => {
+                                const roleClass = u.role.toLowerCase() === 'admin' ? 'role-admin' : (u.role.toLowerCase() === 'editor' ? 'role-editor' : 'role-viewer');
+                                const deleteBtn = u.id === 1 ? '' : `<i class="fas fa-trash" style="cursor:pointer;" onclick="deleteSysUser(${u.id})"></i>`;
+                                return `
+                                    <tr>
+                                        <td>${u.username}</td>
+                                        <td>${u.email}</td>
+                                        <td><span class="user-role ${roleClass}">${u.role}</span></td>
+                                        <td>${u.last_login || 'Hiç giriş yapmadı'}</td>
+                                        <td class="user-actions">
+                                            <i class="fas fa-edit" style="cursor:pointer;" onclick="editSysUser(${u.id}, '${u.username}', '${u.email}', '${u.role}')"></i>
+                                            ${deleteBtn}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('');
+                        }
+                    }
+                }
+            });
+        }
+    });
+
+    // Helper functions for user management
+    window.addSysUser = function() {
+        const username = prompt("Kullanıcı Adı:");
+        if (!username) return;
+        const email = prompt("E-posta Adresi:");
+        if (!email) return;
+        const role = prompt("Rol (Admin/Editor/Viewer):", "Viewer");
+        
+        appStore.addUser({ username, email, role: role || 'Viewer' });
+    };
+
+    window.editSysUser = function(id, name, email, role) {
+        const newName = prompt("Yeni Kullanıcı Adı:", name);
+        if (!newName) return;
+        const newEmail = prompt("Yeni E-posta Adresi:", email);
+        if (!newEmail) return;
+        const newRole = prompt("Yeni Rol (Admin/Editor/Viewer):", role);
+        
+        appStore.updateUser(id, { username: newName, email: newEmail, role: newRole || role });
+    };
+
+    window.deleteSysUser = function(id) {
+        if (confirm("Bu kullanıcıyı silmek istediğinizden emin misiniz?")) {
+            appStore.deleteUser(id);
+        }
+    };
 
     // İptal butonları
-    document.querySelectorAll('.cancel-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            if (confirm('Değişiklikleriniz kaydedilmeyecek. Devam etmek istediğinizden emin misiniz?')) {
-                // Formu temizle veya eski haline döndür
-            }
-        });
-    });
-
-    // API anahtarı kopyalama
-    document.querySelectorAll('.api-btn .fa-copy').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const input = this.closest('.api-key-input').querySelector('input');
-            input.select();
-            document.execCommand('copy');
-            alert('API anahtarı panoya kopyalandı!');
-        });
-    });
-
-    // Güncelleme kontrolü
-    document.querySelector('.update-btn').addEventListener('click', function () {
-        alert('Güncelleme kontrolü yapılıyor...\nMevcut sürüm: v1.0.4-beta\nEn son sürüm: v1.0.4-beta (güncel)');
-    });
-
-    // Kullanıcı işlemleri
-    document.querySelectorAll('.user-actions .fa-edit').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const row = this.closest('tr');
-            const userName = row.cells[0].textContent;
-            alert(userName + ' kullanıcısının yetkileri düzenleniyor...');
-        });
-    });
-
-    document.querySelectorAll('.user-actions .fa-trash').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const row = this.closest('tr');
-            const userName = row.cells[0].textContent;
-            if (confirm(userName + ' kullanıcısını silmek istediğinizden emin misiniz?')) {
-                row.remove();
-            }
-        });
-    });
-
-    // Yeni kullanıcı ekle
-    document.querySelector('.save-btn .fa-user-plus')?.closest('button').addEventListener('click', function () {
-        alert('Yeni kullanıcı ekleme formu açılıyor...');
-    });
 
     // Şimdi yedekle
     document.querySelectorAll('.save-btn .fa-play').forEach(btn => {

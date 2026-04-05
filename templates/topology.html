@@ -250,71 +250,191 @@
     appStore.subscribe((state) => {
         currentDevices = state.devices;
         renderTopology(state.devices);
+        
+        // Handle URL focus pivot (Forensic Bridge)
+        setTimeout(() => handleURLFocus(), 100);
     });
+
+    /**
+     * Parse URL for focus parameter and highlight/center the target node.
+     * Retries once if the node isn't found immediately.
+     */
+    function handleURLFocus(retryCount = 0) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const focusId = urlParams.get('focus');
+        if (!focusId) return;
+
+        const el = document.getElementById(`node-${focusId}`);
+        if (!el) {
+            if (retryCount < 1) {
+                console.log(`Node ${focusId} not found, retrying in 500ms...`);
+                setTimeout(() => handleURLFocus(retryCount + 1), 500);
+            }
+            return;
+        }
+
+        // 1. Center viewport
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+
+        // 2. Open drawer
+        openDrawer(focusId);
+
+        // 3. Select node visually
+        document.querySelectorAll('.device-icon').forEach(d => d.classList.remove('selected'));
+        el.classList.add('selected');
+
+        // 4. Trace-strobe animation
+        el.classList.add('focus-strobe');
+        setTimeout(() => el.classList.remove('focus-strobe'), 5000);
+    }
 
     // 1. Flicker-Free Node Renderer
     function renderTopology(devices) {
         const container = document.getElementById('mapContainer');
-        const centerX = container.clientWidth / 2;
-        const centerY = container.clientHeight / 2;
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const padding = 100;
 
         const iconMap = {
             network: 'fa-network-wired',
             server: 'fa-database',
             pc: 'fa-desktop',
+            workstation: 'fa-desktop',
             iot: 'fa-microchip',
             mobile: 'fa-mobile-alt'
         };
 
-        devices.forEach((device, index) => {
+        // Categorize for Zonal Logic
+        const zones = {
+            zero: [], // Core (Network)
+            one: [],  // Infra/Servers
+            two: {}   // Departmental Islands
+        };
+
+        devices.forEach(d => {
+            if (d.type.toLowerCase() === 'network') {
+                zones.zero.push(d);
+            } else if (d.type.toLowerCase() === 'server' || d.department === 'Infra') {
+                zones.one.push(d);
+            } else {
+                const dept = d.department || 'General';
+                if (!zones.two[dept]) zones.two[dept] = [];
+                zones.two[dept].push(d);
+            }
+        });
+
+        const positions = new Map();
+
+        // Zone 0: Center
+        zones.zero.forEach((d, i) => {
+            const spread = zones.zero.length > 1 ? 50 : 0;
+            const angle = (i / zones.zero.length) * 2 * Math.PI;
+            positions.set(d.id, {
+                x: centerX + Math.cos(angle) * spread,
+                y: centerY + Math.sin(angle) * spread,
+                size: 72
+            });
+        });
+
+        // Zone 1: Inner Ring
+        zones.one.forEach((d, i) => {
+            const radius = 350; // Increased from 180
+            const angle = (i / zones.one.length) * 2 * Math.PI;
+            positions.set(d.id, {
+                x: centerX + Math.cos(angle) * radius,
+                y: centerY + Math.sin(angle) * radius,
+                size: 64
+            });
+        });
+
+        // Zone 2: Departmental Islands
+        const depts = Object.keys(zones.two);
+        depts.forEach((dept, dIdx) => {
+            const islandAngle = (dIdx / depts.length) * 2 * Math.PI;
+            const islandRadius = Math.min(width, height) * 0.75; // Increased from 0.35
+            const islandCenterX = centerX + Math.cos(islandAngle) * islandRadius;
+            const islandCenterY = centerY + Math.sin(islandAngle) * islandRadius;
+
+            zones.two[dept].forEach((d, i) => {
+                const localAngle = (i / zones.two[dept].length) * 2 * Math.PI;
+                const localRadius = 150; // Increased from 60
+                positions.set(d.id, {
+                    x: islandCenterX + Math.cos(localAngle) * localRadius,
+                    y: islandCenterY + Math.sin(localAngle) * localRadius,
+                    size: 56
+                });
+            });
+        });
+
+        // Collision Avoidance (Force-directed-ish adjustment)
+        const nodeIds = Array.from(positions.keys());
+        for (let iter = 0; iter < 10; iter++) { // Increased iterations
+            for (let i = 0; i < nodeIds.length; i++) {
+                for (let j = i + 1; j < nodeIds.length; j++) {
+                    const idA = nodeIds[i];
+                    const idB = nodeIds[j];
+                    const posA = positions.get(idA);
+                    const posB = positions.get(idB);
+                    const dx = posB.x - posA.x;
+                    const dy = posB.y - posA.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const minDist = 120; // Increased from (size+size)/2 + 30
+
+                    if (dist < minDist) {
+                        const overlap = minDist - dist;
+                        const nx = dx / dist || 1;
+                        const ny = dy / dist || 0;
+                        posA.x -= nx * overlap / 2;
+                        posA.y -= ny * overlap / 2;
+                        posB.x += nx * overlap / 2;
+                        posB.y += ny * overlap / 2;
+                    }
+                }
+            }
+        }
+
+        // Render nodes with calculated positions
+        devices.forEach(device => {
+            const pos = positions.get(device.id);
+            // Boundary Intelligence
+            pos.x = Math.max(pos.size, Math.min(width - pos.size, pos.x));
+            pos.y = Math.max(pos.size, Math.min(height - pos.size, pos.y));
+
             let el = document.getElementById(`node-${device.id}`);
             const isNew = !el;
 
             if (isNew) {
                 el = document.createElement('div');
-                el.className = 'device-icon';
                 el.id = `node-${device.id}`;
                 container.appendChild(el);
                 nodeCache.set(device.id, el);
             }
 
-            // Update Classes (Pulse/Risk/Contagion)
-            el.className = 'device-icon';
+            el.className = `device-icon ${device.type.toLowerCase()}`;
+            el.style.width = `${pos.size}px`;
+            el.style.height = `${pos.size}px`;
+            el.style.left = `${pos.x - pos.size / 2}px`;
+            el.style.top = `${pos.y - pos.size / 2}px`;
+
             if (device.status === 'Isolated') {
                 el.classList.add('status-isolated');
             } else if (device.risk_level > 80) {
                 el.classList.add('pulse-fast-red');
-            } else if (device.status === 'Under Scan') {
-                el.classList.add('pulse-scanning');
             } else if (device.shadow_risk_flag) {
                 el.classList.add('pulse-slow-orange');
             }
 
-            // Status Badge
             let badgeIcon = device.status === 'Isolated' ? 'fa-unlink' : (device.risk_level > 80 ? 'fa-radiation' : (device.status === 'online' ? 'fa-shield-alt' : 'fa-clock'));
             let badgeClass = device.status === 'Isolated' ? 'badge-threat' : (device.risk_level > 80 ? 'badge-threat' : (device.risk_level > 30 ? 'badge-warning' : 'badge-secure'));
 
-            // Positioning (Calculated once or transitioned)
-            let x, y;
-            if (device.parent_id === null) {
-                x = centerX - 30;
-                y = centerY - 30;
-            } else {
-                const angle = (index * (360 / (devices.length - 1))) * (Math.PI / 180);
-                const radius = 220;
-                x = centerX + radius * Math.cos(angle) - 30;
-                y = centerY + radius * Math.sin(angle) - 30;
-            }
-
-            el.style.left = `${x}px`;
-            el.style.top = `${y}px`;
-
-            const icon = iconMap[device.type] || 'fa-question';
+            const icon = iconMap[device.type.toLowerCase()] || 'fa-question';
             el.innerHTML = `
                 <div class="node-badge ${badgeClass}"><i class="fas ${badgeIcon}"></i></div>
-                <div class="device-status status-${device.status === 'online' ? 'up' : 'down'}"></div>
-                <i class="fas ${icon}"></i>
-                <span class="device-name">${device.hostname}</span>
+                <div class="device-status status-${device.status.toLowerCase() == 'online' ? 'up' : (device.status.toLowerCase() == 'warning' ? 'warning' : 'down')}"></div>
+                <i class="fas ${icon}" style="font-size: ${pos.size / 2.5}px"></i>
+                <span class="device-name" style="bottom: -20px; font-size: ${pos.size / 6}px">${device.hostname}</span>
             `;
 
             if (isNew) {
@@ -327,7 +447,6 @@
             }
         });
 
-        // Initial connections draw
         drawConnections(devices);
     }
 
@@ -350,12 +469,12 @@
             }
 
             const fromPos = {
-                x: parseFloat(fromEl.style.left) + 30,
-                y: parseFloat(fromEl.style.top) + 30
+                x: parseFloat(fromEl.style.left) + fromEl.clientWidth / 2,
+                y: parseFloat(fromEl.style.top) + fromEl.clientHeight / 2
             };
             const toPos = {
-                x: parseFloat(toEl.style.left) + 30,
-                y: parseFloat(toEl.style.top) + 30
+                x: parseFloat(toEl.style.left) + toEl.clientWidth / 2,
+                y: parseFloat(toEl.style.top) + toEl.clientHeight / 2
             };
 
             const length = Math.sqrt(Math.pow(toPos.x - fromPos.x, 2) + Math.pow(toPos.y - fromPos.y, 2));
@@ -368,22 +487,22 @@
             line.style.position = 'absolute';
             line.style.zIndex = '1';
 
-            const device = currentDevices.find(d => d.id === link.source_id) || {};
+            const fromDevice = currentDevices.find(d => d.id === link.source_id) || {};
+            const toDevice = currentDevices.find(d => d.id === link.target_id) || {};
 
             // Path Styling Logic
-            if (device.status === 'Isolated' || link.status === 'down') {
+            line.className = 'line';
+            if (fromDevice.status === 'Isolated' || toDevice.status === 'Isolated' || link.status === 'down') {
                 line.classList.add('isolated-path');
-                line.classList.remove('red-path', 'active-flow');
-            } else if (device.risk_level > 80) {
+            } else if (fromDevice.risk_level > 80 || toDevice.risk_level > 80) {
                 line.classList.add('red-path');
-                line.classList.remove('isolated-path', 'active-flow');
             } else {
-                line.classList.remove('red-path', 'isolated-path');
                 line.classList.add('active-flow');
             }
 
-            if (device.status === 'offline' || device.status === 'Isolated' || link.status === 'down') line.classList.add('down');
-            else line.classList.remove('down');
+            if (fromDevice.status === 'offline' || toDevice.status === 'offline') {
+                line.classList.add('down');
+            }
         });
     }
 
@@ -454,6 +573,14 @@
             </div>
 
             <div class="action-menu" style="display: flex; flex-direction: column; gap: 12px;">
+                <a href="/assets?id=${device.id}" class="action-btn" style="text-decoration: none; text-align: center; border-color: var(--neon-cyan); color: var(--neon-cyan);">
+                    <i class="fas fa-external-link-alt"></i> VARLIK DETAYLARINA GİT
+                </a>
+
+                <a href="/securityAudit?target=${device.id}" class="action-btn" style="text-decoration: none; text-align: center; border-color: var(--warning-orange); color: var(--warning-orange);">
+                    <i class="fas fa-shield-alt"></i> GÜVENLİK KAYITLARINA GİT
+                </a>
+
                 ${device.status !== 'Isolated' ? `
                     <button onclick="isolateDevice('${device.id}')" class="action-btn action-btn-red">
                         <i class="fas fa-unlink"></i> SEVER CONNECTION
@@ -483,19 +610,27 @@
         const device = currentDevices.find(d => d.id === deviceId);
         if (!device || !confirm(`Sever network connection for ${device.hostname}?`)) return;
         await deviceAction('isolate', deviceId, device.hostname);
+        // Refresh local data then reopen drawer
+        await appStore.loadData();
         openDrawer(deviceId);
     }
 
     async function manualScan(deviceId) {
         const device = currentDevices.find(d => d.id === deviceId);
         await deviceAction('scan', deviceId, device ? device.hostname : deviceId);
-        // Reopen drawer after ~3.5s so the updated scan row is visible
-        setTimeout(() => openDrawer(deviceId), 3500);
+        await appStore.loadData();
+        openDrawer(deviceId);
+        // Re-refresh drawer after ~3.5s so the updated scan row is visible
+        setTimeout(async () => {
+            await appStore.loadData();
+            openDrawer(deviceId);
+        }, 3500);
     }
 
     async function restoreDevice(deviceId) {
         const device = currentDevices.find(d => d.id === deviceId);
         await deviceAction('restore', deviceId, device ? device.hostname : deviceId);
+        await appStore.loadData();
         openDrawer(deviceId);
     }
 

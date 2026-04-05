@@ -332,6 +332,9 @@
                 </div>
                 <div class="alert-actions">
                     <button class="alert-action-btn primary"><i class="fas fa-search"></i> Detaya Git</button>
+                    <button class="alert-action-btn pivot-btn" data-device-id="${alert.device_id}">
+                        <i class="fas fa-project-diagram"></i> HARİTADA GÖR
+                    </button>
                     <button class="alert-action-btn"><i class="fas fa-check"></i> Çözüldü</button>
                     <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
                 </div>
@@ -411,6 +414,13 @@
 
         if (action.includes('Detaya Git')) {
             alert(`${title} detayları görüntüleniyor...`);
+        } else if (action.includes('HARİTADA GÖR')) {
+            const deviceId = btn.dataset.deviceId;
+            if (deviceId) {
+                window.location.href = `/topology?focus=${deviceId}`;
+            } else {
+                alert('Cihaz kimliği bulunamadı.');
+            }
         } else if (action.includes('Çözüldü')) {
             card.style.opacity = '0.5';
             btn.disabled = true;

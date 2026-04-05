@@ -1,30 +1,254 @@
-### Python ###
+# ============================================================
+#  Network Observability & Security Management — .gitignore
+#  Nebula Net Platform | Flask + SQLite + Python
+#  Geliştirici: Mehmet Ersolak
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+#  🐍 Python
+# ─────────────────────────────────────────────────────────────
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-.venv/
-venv/
-ENV/
-env/
+*.pyc
+*.pyo
+*.pyd
 
-### Veritabanı (Database) ###
-# Eğer SQLite kullanıyorsan database dosyasını gizlemek iyi bir fikirdir
-*.sqlite3
-db.sqlite3
-# Diğer olası veritabanı dosyaları
+# Distribution / packaging
+.Python
+build/
+dist/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+MANIFEST
+wheels/
+*.whl
+
+# Unit test ve coverage çıktıları
+.tox/
+.nox/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+nosetests.xml
+
+
+# ─────────────────────────────────────────────────────────────
+#  🌐 Flask
+# ─────────────────────────────────────────────────────────────
+
+# Flask oturum & gizlilik dosyaları
+instance/
+.webassets-cache
+
+# Flask secret key ve config dosyaları
+*.cfg
+!setup.cfg
+
+
+# ─────────────────────────────────────────────────────────────
+#  🗄️ Veritabanı — SQLite
+# ─────────────────────────────────────────────────────────────
+
+# SQLite veritabanı dosyaları (otomatik oluşur, repoya girmemeli)
 *.db
+*.sqlite
+*.sqlite3
 *.db-journal
+*.db-shm
+*.db-wal
 
-### IDE ve Editörler ###
+# Bu projeye özgü: observability_v2.db
+observability_v2.db
+
+
+# ─────────────────────────────────────────────────────────────
+#  🔐 Gizli Bilgiler & Ortam Değişkenleri
+# ─────────────────────────────────────────────────────────────
+
+# API anahtarları, şifreler, secret key dosyaları
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.staging
+secrets.json
+secrets.yaml
+secrets.toml
+config.local.py
+
+# SSH / TLS sertifikaları
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.cer
+
+
+# ─────────────────────────────────────────────────────────────
+#  📦 Sanal Ortamlar (Virtual Environments)
+# ─────────────────────────────────────────────────────────────
+
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+.virtualenv/
+Pipfile.lock
+
+
+# ─────────────────────────────────────────────────────────────
+#  🛠️ IDE & Editörler
+# ─────────────────────────────────────────────────────────────
+
+# VS Code
 .vscode/
+*.code-workspace
+
+# JetBrains (PyCharm, IntelliJ vb.)
 .idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim / Neovim
 *.swp
 *.swo
+*~
+.netrwhist
 
-### İşletim Sistemi ###
+# Emacs
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+
+# ─────────────────────────────────────────────────────────────
+#  🖥️ İşletim Sistemi Dosyaları
+# ─────────────────────────────────────────────────────────────
+
+# macOS
 .DS_Store
-Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
 
-### Gizli Bilgiler ###
-# API anahtarları veya şifrelerin olduğu dosyalar
-.env
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+
+# ─────────────────────────────────────────────────────────────
+#  📊 Log & Çıktı Dosyaları
+# ─────────────────────────────────────────────────────────────
+
+*.log
+*.log.*
+logs/
+log/
+*.out
+*.err
+nohup.out
+
+
+# ─────────────────────────────────────────────────────────────
+#  🌐 Frontend / Node.js (gelecekteki entegrasyon için)
+# ─────────────────────────────────────────────────────────────
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+.npm/
+dist/
+.cache/
+
+
+# ─────────────────────────────────────────────────────────────
+#  📦 Docker & Deployment
+# ─────────────────────────────────────────────────────────────
+
+# Docker volume ve compose override dosyaları
+docker-compose.override.yml
+.docker/
+
+# Kubernetes gizli kaynaklar
+k8s/secrets/
+
+
+# ─────────────────────────────────────────────────────────────
+#  📋 Geçici & Derleme Dosyaları
+# ─────────────────────────────────────────────────────────────
+
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+*.orig
+*.DS_Store
+.cache/
+.temp/
+
+
+# ─────────────────────────────────────────────────────────────
+#  📈 Profiling & Debug
+# ─────────────────────────────────────────────────────────────
+
+*.prof
+*.lprof
+profile_output/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+.ruff_cache/
+
+
+# ─────────────────────────────────────────────────────────────
+#  ✅ Yine de İzlenmesi Gerekenler (Exclude'ları Geçersiz Kıl)
+# ─────────────────────────────────────────────────────────────
+
+# Örnek env dosyası repoya girebilir (değerleri boş olmalı!)
+!.env.example
+
+# Setup dosyaları
+!setup.cfg
+!setup.py
+!pyproject.toml
