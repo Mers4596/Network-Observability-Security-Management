@@ -277,7 +277,7 @@ Uygulama başlatıldığında 3 daemon thread otomatik olarak devreye girer:
 ## 👤 Geliştirici
 
 **Mehmet Ersolak**  
-📧 mehmet@nebulanets.local  
+📧 mehmetersolak68@gmail.com 
 🔗 [GitHub](https://github.com/Mers4596)
 
 ---
