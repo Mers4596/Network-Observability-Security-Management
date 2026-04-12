@@ -171,10 +171,9 @@
                 <h3><i class="fas fa-globe"></i> Tehdit Giriş Noktaları</h3>
                 <span class="live-badge"><i class="fas fa-circle"></i> CANLI</span>
             </div>
-            <div class="attack-map">
+            <div class="attack-map" id="attackMapContainer">
                 <div class="map-placeholder">
-                    <div class="attack-dot" style="top: 30%; left: 20%;"></div>
-                    <div class="attack-dot" style="top: 60%; left: 45%;"></div>
+                    <!-- Dots will be injected here via JS -->
                 </div>
             </div>
         </div>
@@ -515,6 +514,24 @@
             window.securityChart.update();
         }
     }
+    
+    async function updateAttackMap() {
+        try {
+            const res = await fetch('/api/attack-map');
+            if (res.ok) {
+                const mapData = await res.json();
+                const container = document.querySelector('.map-placeholder');
+                if (!container) return;
+                
+                container.innerHTML = mapData.map(node => {
+                    const color = node.anomalous ? '#FF4B5C' : (node.risk > 40 ? '#FFB74D' : '#00f2ff');
+                    const shadow = node.anomalous ? '0 0 15px rgba(255, 75, 92, 0.8)' : 'none';
+                    const pulseClass = node.anomalous ? 'pulse-anim' : '';
+                    return `<div class="attack-dot ${pulseClass}" style="top: ${node.top}%; left: ${node.left}%; background: ${color}; box-shadow: ${shadow};" title="IP: ${node.ip} | Risk: ${node.risk}"></div>`;
+                }).join('');
+            }
+        } catch(e) { console.error('Attack map update failed', e); }
+    }
 
     // Initialize Gauge Chart on DOM Load
     document.addEventListener('DOMContentLoaded', () => {
@@ -552,6 +569,10 @@
                 window.refreshSecurityUI(appStore.state);
             }
         }
+        
+        // Attack map independent poll
+        updateAttackMap();
+        setInterval(updateAttackMap, 5000);
     });
 </script>
 {% endblock %}

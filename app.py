@@ -5,12 +5,15 @@ import time
 import random
 import collections
 import json
+import shutil
 from datetime import datetime
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from flask_socketio import SocketIO, emit
 from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = 'nebulanet_secure_session_key_2026'
 socketio = SocketIO(app, cors_allowed_origins="*")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH   = os.path.join(BASE_DIR, 'observability_v2.db')
@@ -40,7 +43,6 @@ def init_db():
     conn   = get_db_connection()
     cursor = conn.cursor()
 
-    # Define mock_devices here to avoid UnboundLocalError
     mock_devices = [
         # ID, Hostname, IP, MAC, Status, Type, Risk, Department, OS/Kernel, Location, Last Seen, Discovery, ParentID, ShadowRisk
         ('dev-001', 'CORE-RT-100',  '10.0.0.1',   '00:11:22:33:44:55', 'Online',   'Network',     5,  'Infra',   'Cisco IOS-XE', 'DataCenter-A', '2024-03-12 10:00', '2024-01-01', None, 0),
@@ -52,7 +54,8 @@ def init_db():
         ('dev-007', 'HR-KIOSK-1',   '192.168.2.10','00:AA:11:BB:22:CC', 'Online',   'Workstation', 25, 'HR',      'Win 10',       'Lobby',        '2024-03-12 08:30', '2024-02-28', 'dev-002', 0),
         ('dev-008', 'SEC-CAM-EXT',  '192.168.3.55','55:44:33:22:11:00', 'Isolated', 'IoT',         95, 'Infra',   'Embedded OS',  'Main Gate',    '2024-03-10 12:00', '2024-01-20', 'dev-003', 0),
         ('dev-009', 'CONF-ROOM-TV', '192.168.2.50','99:88:77:66:55:44', 'Online',   'IoT',         60, 'Mgmt',    'Tizen OS',     'Boardroom',    '2024-03-12 10:15', '2024-03-01', 'dev-003', 0),
-        ('dev-010', 'DEV-MAC-XYZ',  '192.168.4.22','AA:11:BB:22:CC:33', 'Online',   'Workstation', 15, 'Infra',   'macOS 14',     'Office-2',     '2024-03-12 10:20', '2024-03-10', 'dev-002', 0)
+        ('dev-010', 'DEV-MAC-XYZ',  '192.168.4.22','AA:11:BB:22:CC:33', 'Online',   'Workstation', 15, 'Infra',   'macOS 14',     'Office-2',     '2024-03-12 10:20', '2024-03-10', 'dev-002', 0),
+        ('dev-011', 'HR-MAIN-SRV',  '10.0.3.50',  'BB:AA:33:44:55:66', 'Online',   'Server',      20, 'HR',      'Win Server',   'HR-Dept',      '2024-03-12 10:25', '2024-03-11', 'dev-002', 0)
     ]
 
     # ── 1. Phase 1 Core Tables (Identity & Assets) ───────────────────────────
@@ -156,6 +159,7 @@ def init_db():
             action      TEXT    DEFAULT 'Monitor', -- 'Allow', 'Block', 'Monitor'
             status      TEXT    DEFAULT 'Enabled', -- 'Enabled', 'Disabled'
             priority    INTEGER DEFAULT 99,
+            schedule    TEXT    DEFAULT '[]',
             created_at  TEXT    DEFAULT (datetime('now', 'localtime'))
         )
     ''')
@@ -169,7 +173,8 @@ def init_db():
             security_level      TEXT    DEFAULT 'Normal', -- 'Strict', 'Normal', 'Relaxed'
             system_name         TEXT    DEFAULT 'Nebula Net - Ana Merkez',
             default_lang        TEXT    DEFAULT 'Türkçe',
-            timezone            TEXT    DEFAULT 'Europe/Istanbul (UTC+3)'
+            timezone            TEXT    DEFAULT 'Europe/Istanbul (UTC+3)',
+            access_schedule     TEXT    DEFAULT '[]'
         )
     ''')
     
@@ -179,12 +184,31 @@ def init_db():
     new_sys_cols = [
         ('system_name', "TEXT DEFAULT 'Nebula Net - Ana Merkez'"),
         ('default_lang', "TEXT DEFAULT 'Türkçe'"),
-        ('timezone', "TEXT DEFAULT 'Europe/Istanbul (UTC+3)'")
+        ('timezone', "TEXT DEFAULT 'Europe/Istanbul (UTC+3)'"),
+        ('access_schedule', "TEXT DEFAULT '[]'")
     ]
     for col_name, col_def in new_sys_cols:
         if col_name not in sys_cols:
             print(f"MIGRATION: Adding {col_name} to system_settings")
             cursor.execute(f"ALTER TABLE system_settings ADD COLUMN {col_name} {col_def}")
+
+    # Schema Migration for access_rules
+    cursor.execute("PRAGMA table_info(access_rules)")
+    rule_cols = [c[1] for c in cursor.fetchall()]
+    if 'schedule' not in rule_cols:
+        print("MIGRATION: Adding schedule to access_rules")
+        cursor.execute("ALTER TABLE access_rules ADD COLUMN schedule TEXT DEFAULT '[]'")
+
+    # Phase 3 Integations
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT NOT NULL UNIQUE,
+            api_key TEXT NOT NULL,
+            status TEXT DEFAULT 'active'
+        )
+    ''')
+
     conn.commit()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS security_scans (
@@ -219,6 +243,16 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, ip_range TEXT
         )
     ''')
+
+    # Schema Migration for security_alerts: status + hostname columns
+    cursor.execute("PRAGMA table_info(security_alerts)")
+    alert_cols = [c[1] for c in cursor.fetchall()]
+    if 'status' not in alert_cols:
+        print("MIGRATION: Adding status to security_alerts")
+        cursor.execute("ALTER TABLE security_alerts ADD COLUMN status TEXT DEFAULT 'active'")
+    if 'hostname' not in alert_cols:
+        print("MIGRATION: Adding hostname to security_alerts")
+        cursor.execute("ALTER TABLE security_alerts ADD COLUMN hostname TEXT DEFAULT ''")
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS topology_links (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -273,7 +307,7 @@ def init_db():
         cursor.execute('''
             INSERT INTO users (username, email, role, password_hash, avatar_initials)
             VALUES (?, ?, ?, ?, ?)
-        ''', ('Mehmet Ersolak', 'mehmet@nebulanets.local', 'Admin', 'hashed_password_123', 'ME'))
+        ''', ('Mehmet Ersolak', 'mehmet@nebulanets.local', 'Admin', generate_password_hash('admin123'), 'ME'))
 
     cursor.execute('SELECT COUNT(*) FROM devices')
     if cursor.fetchone()[0] == 0:
@@ -313,6 +347,21 @@ def init_db():
             VALUES (?, ?, ?, ?, ?)
         ''', findings)
 
+    cursor.execute('SELECT COUNT(*) FROM safe_zones')
+    if cursor.fetchone()[0] == 0:
+        print("Seeding default safe zones...")
+        default_zones = [
+            ('Corporate LAN',     '10.0.0.0/8'),
+            ('Office Network',    '192.168.0.0/16'),
+            ('Management VLAN',   '172.16.0.0/12'),
+            ('Server Zone',       '10.0.0.0/24'),
+            ('IoT Segment',       '192.168.3.0/24'),
+        ]
+        cursor.executemany(
+            'INSERT INTO safe_zones (name, ip_range) VALUES (?, ?)',
+            default_zones
+        )
+
     conn.commit()
     conn.close()
 
@@ -329,13 +378,32 @@ def audit_logger(action_type, target_type):
                 if request.content_length and request.content_length > 0 and not request.is_json:
                     return jsonify({"error": "JSON payload required"}), 400
             
-            response = f(*args, **kwargs)
+            try:
+                response = f(*args, **kwargs)
+            except Exception as e:
+                return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
             
             # Log only if successful
-            status_code = response[1] if isinstance(response, tuple) else (response.status_code if hasattr(response, 'status_code') else 200)
+            status_code = response[1] if isinstance(response, tuple) else (getattr(response, 'status_code', 200))
             if 200 <= status_code < 300:
-                t_id = next(iter(kwargs.values())) if kwargs else 'global'
-                detail = json.dumps(request.json) if (request.is_json and request.method != 'GET') else None
+                t_id = 'global'
+                if kwargs:
+                    t_id = next(iter(kwargs.values()))
+                elif action_type == 'CREATE_USER':
+                    try:
+                        res_data = response[0].get_json() if isinstance(response, tuple) else response.get_json()
+                        if res_data and 'id' in res_data:
+                            t_id = res_data['id']
+                    except:
+                        pass
+                
+                detail = None
+                if request.is_json and request.method != 'GET':
+                    try:
+                        detail = json.dumps(request.json)
+                    except:
+                        pass
+                        
                 try:
                     log_user_action(
                         action=action_type,
@@ -445,6 +513,13 @@ def flush_traffic_buffer():
                                     INSERT INTO security_alerts (device_id, type, severity, message, timestamp)
                                     VALUES (?, ?, ?, ?, ?)
                                 ''', (item[0], 'Traffic Anomaly', severity, msg, item[11]))
+
+                        # 3. Retention Policy Check & Cleanup
+                        ret_settings = conn.execute("SELECT retention_days FROM system_settings WHERE id = 1").fetchone()
+                        ret_days = ret_settings['retention_days'] if ret_settings else 30
+                        
+                        conn.execute(f"DELETE FROM traffic_logs WHERE timestamp < datetime('now', 'localtime', '-{ret_days} days')")
+                        conn.execute(f"DELETE FROM device_uptime_log WHERE timestamp < datetime('now', 'localtime', '-{ret_days} days')")
 
                         conn.commit()
                         conn.close()
@@ -585,6 +660,117 @@ threading.Thread(target=summarize_network_health, daemon=True, name="Health-Summ
 threading.Thread(target=flush_traffic_buffer, daemon=True, name="DB-Flusher").start()
 sim_thread = threading.Thread(target=simulate_traffic, daemon=True, name="Traffic-Sim")
 sim_thread.start()
+
+# ── Authentication Middleware ─────────────────────────────────────────────
+@app.before_request
+def require_login():
+    # Allow static assets and public routes
+    allowed_routes = ['login', 'api_login', 'static']
+    if request.endpoint in allowed_routes:
+        return
+    
+    # Require session ID for dashboard logic
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+@app.route('/login')
+def login():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('login.html')
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    if not username or not password:
+        return jsonify({"error": "Missing credentials"}), 400
+        
+    try:
+        conn = get_db_connection()
+        user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        conn.close()
+        
+        if user and check_password_hash(user['password_hash'], password):
+            # Login successful
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['role'] = user['role']
+            return jsonify({"status": "success", "message": "Logged in"})
+        else:
+            return jsonify({"error": "Invalid username or password"}), 401
+    except Exception as e:
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    session.clear()
+    return jsonify({"status": "success"})
+
+
+# ── Integrations & Backup (Phase 3) ───────────────────────────────────────
+@app.route('/api/system/backup', methods=['POST'])
+def system_backup():
+    try:
+        backup_dir = os.path.join(BASE_DIR, 'backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_file = os.path.join(backup_dir, f"observability_backup_{timestamp}.db")
+        
+        # Synchronize and copy the main DB
+        conn = get_db_connection()
+        # Force a checkpoint for WAL mode before copy
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        conn.close()
+        
+        shutil.copy2(DB_PATH, backup_file)
+        return jsonify({"success": True, "file": f"observability_backup_{timestamp}.db"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/integrations', methods=['GET', 'POST'])
+def manage_integrations():
+    try:
+        conn = get_db_connection()
+        if request.method == 'POST':
+            data = request.json
+            provider = data.get('provider')
+            api_key = data.get('api_key')
+            if not provider or not api_key:
+                 return jsonify({"error": "Provider and API Key required"}), 400
+             
+            # Upsert logic (Insert or Replace)
+            conn.execute('''
+                INSERT INTO api_keys (provider, api_key, status)
+                VALUES (?, ?, 'active')
+                ON CONFLICT(provider) DO UPDATE SET api_key=excluded.api_key, status='active'
+            ''', (provider, api_key))
+            conn.commit()
+            conn.close()
+            return jsonify({"success": True, "message": f"{provider} key saved"})
+            
+        else: # GET
+            keys = conn.execute("SELECT id, provider, status FROM api_keys").fetchall()
+            conn.close()
+            # Deliberately exclude the actual api_key value in GET for security
+            return jsonify([dict(k) for k in keys])
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
+@app.route('/api/integrations/<provider>', methods=['DELETE'])
+def delete_integration(provider):
+    try:
+        conn = get_db_connection()
+        conn.execute("DELETE FROM api_keys WHERE provider = ?", (provider,))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/')
 @app.route('/dashboard')
@@ -863,13 +1049,17 @@ def get_audit_logs():
 @app.route('/api/traffic', methods=['GET'])
 def get_traffic():
     try:
+        hours = int(request.args.get('hours', 1))
+        # Cap to sane limits
+        hours = max(1, min(hours, 720))
         conn = get_db_connection()
         logs = conn.execute('''
             SELECT t.*, d.hostname 
             FROM traffic_logs t
             JOIN devices d ON t.device_id = d.id
-            ORDER BY t.id DESC LIMIT 50
-        ''').fetchall()
+            WHERE t.timestamp >= datetime('now', 'localtime', ? || ' hours')
+            ORDER BY t.id DESC LIMIT 100
+        ''', (f'-{hours}',)).fetchall()
         conn.close()
         return jsonify([dict(row) for row in logs])
     except Exception as e:
@@ -877,39 +1067,50 @@ def get_traffic():
 
 @app.route('/api/traffic/stats', methods=['GET'])
 def get_traffic_stats():
-    """Returns real-time aggregates for traffic KPIs."""
+    """Returns real-time aggregates for traffic KPIs. Supports ?hours=N time window."""
     try:
+        hours = int(request.args.get('hours', 1))
+        hours = max(1, min(hours, 720))
+        window_minutes = hours * 60
         conn = get_db_connection()
-        res = conn.execute('''
+        res = conn.execute(f'''
             SELECT 
                 COALESCE(SUM(bytes_sent), 0) as total_sent,
                 COALESCE(SUM(bytes_received), 0) as total_recv,
                 COUNT(id) as active_conns,
                 MAX(bytes_sent + bytes_received) as peak_val
             FROM traffic_logs 
-            WHERE timestamp >= datetime('now', 'localtime', '-15 minutes')
+            WHERE timestamp >= datetime('now', 'localtime', '-{window_minutes} minutes')
         ''').fetchone()
         
         # Protocol distribution for Sankey/Donut
-        proto = conn.execute('''
-            SELECT protocol, COUNT(*) as count 
+        proto = conn.execute(f'''
+            SELECT protocol, COUNT(*) as cnt, SUM(bytes_sent) as total_bytes
             FROM traffic_logs 
-            WHERE timestamp >= datetime('now', 'localtime', '-30 minutes')
+            WHERE timestamp >= datetime('now', 'localtime', '-{window_minutes} minutes')
             GROUP BY protocol
         ''').fetchall()
         
-        # Destination nodes for Sankey (top 3)
-        nodes = conn.execute('''
+        # L7 app protocol distribution
+        app_proto = conn.execute(f'''
+            SELECT app_protocol, COUNT(*) as cnt, SUM(bytes_sent) as total_bytes
+            FROM traffic_logs 
+            WHERE timestamp >= datetime('now', 'localtime', '-{window_minutes} minutes')
+            GROUP BY app_protocol
+        ''').fetchall()
+        
+        # Destination nodes for Sankey (top 3 by volume)
+        nodes = conn.execute(f'''
             SELECT dest_ip, SUM(bytes_sent) as volume 
             FROM traffic_logs 
-            WHERE timestamp >= datetime('now', 'localtime', '-30 minutes')
+            WHERE timestamp >= datetime('now', 'localtime', '-{window_minutes} minutes')
             GROUP BY dest_ip ORDER BY volume DESC LIMIT 3
         ''').fetchall()
 
         conn.close()
 
-        dl_bps = int(res['total_recv'] * 8 / (15 * 60))
-        ul_bps = int(res['total_sent'] * 8 / (15 * 60))
+        dl_bps = int(res['total_recv'] * 8 / max(window_minutes * 60, 1))
+        ul_bps = int(res['total_sent'] * 8 / max(window_minutes * 60, 1))
         
         dl_gbps = round(dl_bps / 1e9, 2)
         ul_mbps = round(ul_bps / 1e6, 2)
@@ -921,7 +1122,8 @@ def get_traffic_stats():
             "upload_bps": ul_bps,
             "active_connections_count": res['active_conns'],
             "peak_traffic_value": f"{round(res['peak_val'] / 1e6, 2)} Mbps" if res['peak_val'] else "0 Mbps",
-            "protocol_dist": {row['protocol']: row['count'] for row in proto},
+            "protocol_dist": {row['protocol']: row['cnt'] for row in proto},
+            "app_protocol_dist": {row['app_protocol']: {"count": row['cnt'], "bytes": row['total_bytes']} for row in app_proto},
             "top_destinations": [dict(n) for n in nodes]
         })
     except Exception as e:
@@ -976,7 +1178,7 @@ def manage_rules():
             return jsonify([dict(row) for row in rules])
     except Exception as e:
         print(f"API Error at /api/rules: {e}")
-        return jsonify([])
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/rules/<int:rule_id>/toggle', methods=['PATCH'])
 @audit_logger('TOGGLE_RULE', 'FIREWALL')
@@ -1021,17 +1223,22 @@ def handle_settings():
         conn = get_db_connection()
         if request.method == 'PATCH':
             data = request.json
+            if 'system_name' not in data or not data['system_name']:
+                # The explicit strict validation requirement
+                return jsonify({"error": "system_name is fundamentally required and cannot be empty"}), 400
+                
             # Update Governance Settings - Explicit Type Casting
             guest_wifi = 1 if data.get('guest_wifi_enabled', 0) in [1, True, '1', 'true', 'True'] else 0
             auto_scan = 1 if data.get('auto_scan_enabled', 1) in [1, True, '1', 'true', 'True'] else 0
             scan_freq = int(data.get('scan_frequency', 60))
             ret_days = int(data.get('retention_days', 30))
             sec_level = str(data.get('security_level', 'Normal'))
-            system_name = str(data.get('system_name', 'Nebula Net - Ana Merkez'))
+            system_name = str(data['system_name'])
             default_lang = str(data.get('default_lang', 'Türkçe'))
             timezone = str(data.get('timezone', 'Europe/Istanbul (UTC+3)'))
             
-            conn.execute('''
+            cursor = conn.cursor()
+            cursor.execute('''
                 UPDATE system_settings SET 
                     guest_wifi_enabled = ?, 
                     auto_scan_enabled = ?, 
@@ -1043,6 +1250,11 @@ def handle_settings():
                     timezone = ?
                 WHERE id = 1
             ''', (guest_wifi, auto_scan, scan_freq, ret_days, sec_level, system_name, default_lang, timezone))
+            
+            if cursor.rowcount == 0:
+                conn.close()
+                return jsonify({"error": "No settings record found to update"}), 404
+                
             conn.commit()
             conn.close()
             return jsonify({"status": "success", "message": "Settings updated successfully"}), 200
@@ -1077,30 +1289,97 @@ def get_protocol_dist():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/alerts', methods=['GET'])
-def get_alerts():
-    """Returns persistent DB alerts merged with session-based memory alerts."""
+@app.route('/api/attack-map', methods=['GET'])
+def get_attack_map():
+    # Returns last 50 external/anomalous traffic paths dynamically
     try:
         conn = get_db_connection()
-        alerts = conn.execute('''
-            SELECT a.*, d.hostname, d.ip_address 
-            FROM security_alerts a
-            JOIN devices d ON a.device_id = d.id
-            ORDER BY a.id DESC LIMIT 30
+        logs = conn.execute('''
+            SELECT dest_ip, anomaly_flag, risk_score
+            FROM traffic_logs
+            ORDER BY id DESC LIMIT 40
         ''').fetchall()
         conn.close()
         
+        # Attach pseudo coordinates (top: %, left: %) based on IP hash to keep it consistent
+        results = []
+        for l in logs:
+            ip = l['dest_ip'] or '0.0.0.0'
+            ip_hash = hash(ip)
+            
+            # Map hash to 10-90% for visual dot placement
+            top = 10 + (abs(ip_hash) % 80)
+            left = 10 + (abs(ip_hash >> 4) % 80)
+            
+            results.append({
+                "ip": ip,
+                "anomalous": bool(l['anomaly_flag']),
+                "risk": l['risk_score'],
+                "top": top,
+                "left": left
+            })
+            
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/alerts', methods=['GET'])
+def get_alerts():
+    """Returns persistent DB alerts. Supports ?today=true and ?status=active filters."""
+    try:
+        conn = get_db_connection()
+        today_only = request.args.get('today', 'false').lower() == 'true'
+        status_filter = request.args.get('status', None)
+
+        where_clauses = []
+        params = []
+
+        if today_only:
+            where_clauses.append("date(a.timestamp) = date('now', 'localtime')")
+
+        if status_filter:
+            where_clauses.append("(a.status = ? OR (a.status IS NULL AND ? = 'active'))")
+            params.extend([status_filter, status_filter])
+
+        where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        alerts = conn.execute(f'''
+            SELECT a.*, d.hostname, d.ip_address 
+            FROM security_alerts a
+            JOIN devices d ON a.device_id = d.id
+            {where_sql}
+            ORDER BY a.id DESC LIMIT 50
+        ''', params).fetchall()
+        conn.close()
+        
         db_alerts = [dict(row) for row in alerts]
-        # Merge with memory alerts (low-risk)
         all_alerts = db_alerts + MEMORY_ALERTS
-        # Sort by timestamp descending
         all_alerts.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
         
         return jsonify(all_alerts[:50])
     except Exception as e:
         print(f"API Error at /api/alerts: {e}")
-        # Return graceful memory fallback or empty
         return jsonify(MEMORY_ALERTS[:50])
+
+
+@app.route('/api/alerts/<int:alert_id>/resolve', methods=['PATCH'])
+@audit_logger('RESOLVE_ALERT', 'ALERT')
+def resolve_alert(alert_id):
+    """Marks an alert as resolved with a timestamp."""
+    try:
+        conn = get_db_connection()
+        result = conn.execute(
+            "UPDATE security_alerts SET status = 'resolved', resolved_at = datetime('now', 'localtime') WHERE id = ?",
+            (alert_id,)
+        )
+        if result.rowcount == 0:
+            conn.close()
+            return jsonify({"error": "Alert not found"}), 404
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "message": f"Alert {alert_id} marked as resolved"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/safe-zones', methods=['GET'])
 def get_safe_zones():
@@ -1295,7 +1574,7 @@ def get_ai_context():
         active_devices = conn.execute("SELECT COUNT(*) FROM devices WHERE status NOT IN ('Offline', 'Isolated')").fetchone()[0]
         isolated_devices = conn.execute("SELECT COUNT(*) FROM devices WHERE status = 'Isolated'").fetchone()[0]
         try:
-            recent_scans = conn.execute("SELECT COUNT(*) FROM security_scans WHERE timestamp(scan_date) >= datetime('now', '-24 hours')").fetchone()[0]
+            recent_scans = conn.execute("SELECT COUNT(*) FROM security_scans WHERE scan_date >= datetime('now', '-24 hours')").fetchone()[0]
         except sqlite3.OperationalError:
             recent_scans = 0
             
@@ -1456,6 +1735,9 @@ def get_topology():
 def create_user():
     try:
         data = request.json
+        if not data:
+            return jsonify({"error": "JSON payload required"}), 400
+            
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
@@ -1467,10 +1749,12 @@ def create_user():
         
         conn.commit()
         conn.close()
-        return jsonify({"status": "success", "id": new_id})
+        return jsonify({"status": "success", "id": new_id}), 201
     except sqlite3.IntegrityError:
         return jsonify({"error": "Username or email already exists"}), 400
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/users/<int:user_id>', methods=['PATCH'])
@@ -1478,8 +1762,10 @@ def create_user():
 def update_user(user_id):
     try:
         data = request.json
+        if not data:
+            return jsonify({"error": "JSON payload required"}), 400
+            
         conn = get_db_connection()
-        
         updates = []
         params = []
         if 'role' in data:
@@ -1504,7 +1790,7 @@ def update_user(user_id):
         conn.execute(query, tuple(params))
         conn.commit()
         conn.close()
-        return jsonify({"status": "success"})
+        return jsonify({"status": "success"}), 200
     except sqlite3.IntegrityError:
         return jsonify({"error": "Username or email already exists"}), 400
     except Exception as e:
@@ -1522,7 +1808,7 @@ def delete_user(user_id):
         conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
         conn.commit()
         conn.close()
-        return jsonify({"status": "success"})
+        return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1532,4 +1818,4 @@ def delete_user(user_id):
 init_db()
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5000)
+    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)

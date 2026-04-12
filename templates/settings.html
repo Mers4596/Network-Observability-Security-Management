@@ -71,14 +71,14 @@
                     <div class="form-label">
                         <i class="fas fa-tag"></i> Sistem Adı
                     </div>
-                    <input type="text" class="form-input" id="setting_systemName" value="Nebula Net - Ana Merkez" placeholder="Sistem adı">
+                    <input type="text" class="form-input" id="sysName" value="" placeholder="Sistem adı">
                 </div>
 
                 <div class="form-group">
                     <div class="form-label">
                         <i class="fas fa-language"></i> Dil
                     </div>
-                    <select class="form-select" id="setting_language">
+                    <select class="form-select" id="sysLang">
                         <option value="Türkçe">Türkçe</option>
                         <option value="English">English</option>
                         <option value="Deutsch">Deutsch</option>
@@ -89,7 +89,7 @@
                     <div class="form-label">
                         <i class="fas fa-clock"></i> Zaman Dilimi
                     </div>
-                    <select class="form-select" id="setting_timezone">
+                    <select class="form-select" id="sysTimezone">
                         <option value="Europe/Istanbul (UTC+3)">Europe/Istanbul (UTC+3)</option>
                         <option value="Europe/London (UTC+0)">Europe/London (UTC+0)</option>
                         <option value="America/New_York (UTC-5)">America/New_York (UTC-5)</option>
@@ -179,56 +179,21 @@
 
                 <div class="form-actions">
                     <button class="cancel-btn">İptal</button>
-                    <button class="save-btn"><i class="fas fa-save"></i> Kaydet</button>
+                    <button class="save-btn" id="scanTabSaveBtn"><i class="fas fa-save"></i> Kaydet</button>
                 </div>
             </div>
 
-            <!-- Integrations Tab (gizli) -->
             <div class="settings-form-card" id="integrations-tab" style="display: none;">
                 <div class="form-header">
                     <h2><i class="fas fa-plug"></i> Entegrasyonlar</h2>
                     <span class="section-desc">API anahtarları ve harici servisler</span>
                 </div>
-
-                <div class="api-key-group">
-                    <div class="api-header">
-                        <span class="api-name"><i class="fas fa-shield" style="color: #00D1FF;"></i>
-                            Fortinet</span>
-                        <span class="api-status inactive">Pasif</span>
-                    </div>
-                    <div class="api-key-input">
-                        <input type="password" value="[ ENCRYPTED / NOT SET ]" readonly>
-                        <button class="api-btn"><i class="fas fa-plus"></i> Ekle</button>
-                    </div>
+                
+                <div id="integrationsContainer">
+                    <!-- Dinamik API Key grupları buraya yüklenecek -->
                 </div>
-
-                <div class="api-key-group">
-                    <div class="api-header">
-                        <span class="api-name"><i class="fas fa-network-wired" style="color: #00E676;"></i>
-                            Cisco</span>
-                        <span class="api-status inactive">Pasif</span>
-                    </div>
-                    <div class="api-key-input">
-                        <input type="password" value="[ ENCRYPTED / NOT SET ]" readonly>
-                        <button class="api-btn"><i class="fas fa-plus"></i> Ekle</button>
-                    </div>
-                </div>
-
-                <div class="api-key-group">
-                    <div class="api-header">
-                        <span class="api-name"><i class="fas fa-cloud" style="color: #FFB74D;"></i> AWS
-                            Cloud</span>
-                        <span class="api-status inactive">Pasif</span>
-                    </div>
-                    <div class="api-key-input">
-                        <input type="text" placeholder="AWS API Key girin">
-                        <button class="api-btn"><i class="fas fa-plus"></i> Ekle</button>
-                    </div>
-                </div>
-
                 <div class="form-actions">
-                    <button class="cancel-btn">İptal</button>
-                    <button class="save-btn"><i class="fas fa-save"></i> Kaydet</button>
+                    <button class="save-btn" onclick="loadIntegrations()"><i class="fas fa-sync"></i> Yenile</button>
                 </div>
             </div>
 
@@ -240,7 +205,7 @@
                 </div>
 
                 <div style="margin-bottom: 20px;">
-                    <button class="save-btn" style="padding: 10px 20px;" onclick="addSysUser()"><i class="fas fa-user-plus"></i>
+                    <button id="btnYeniKullanici" style="padding: 10px 20px; background:var(--primary-color); border:none; border-radius:8px; color:white; cursor:pointer;" onclick="addSysUser()"><i class="fas fa-user-plus"></i>
                         Yeni Kullanıcı Ekle</button>
                 </div>
 
@@ -273,13 +238,12 @@
                 </div>
 
                 <div style="display: flex; gap: 16px; margin-bottom: 24px;">
-                    <button class="save-btn"><i class="fas fa-play"></i> Şimdi Yedekle</button>
-                    <button class="cancel-btn"><i class="fas fa-undo"></i> Geri Yükle</button>
+                    <button class="save-btn" id="btnTriggerBackup" onclick="triggerBackup()"><i class="fas fa-play"></i> Şimdi Yedekle</button>
                 </div>
 
-                <div class="backup-list">
+                <div class="backup-list" id="backupListStatus">
                     <div style="padding: 20px; text-align: center; color: var(--text-muted);">
-                        Sistem yedekleri için API entegrasyonu yakında aktif edilecektir.
+                        Sistem yedekleri için veritabanı kopyalamasını başlatın.
                     </div>
                 </div>
 
@@ -348,37 +312,35 @@
     });
 
     // Kaydet butonları
-    document.querySelectorAll('.save-btn').forEach(btn => {
-        btn.addEventListener('click', async function () {
-            const tabId = this.closest('.settings-form-card').id;
+    const generalSaveBtn = document.getElementById('generalTabSaveBtn');
+    if (generalSaveBtn) {
+        generalSaveBtn.addEventListener('click', async function () {
+            const sysName = document.getElementById('sysName').value;
+            const lang = document.getElementById('sysLang').value;
+            const tz = document.getElementById('sysTimezone').value;
             
-            if (tabId === 'scanning-tab') {
-                const scanFreq = parseInt(document.getElementById('scanFrequency').value) || 60;
-                const secLevel = document.getElementById('securityLevel').value || 'Normal';
-                const autoScan = document.getElementById('autoScanToggle').checked ? 1 : 0;
-                
-                await appStore.updateSettings({
-                    scan_frequency: scanFreq,
-                    security_level: secLevel,
-                    auto_scan_enabled: autoScan
-                });
-            } else if (tabId === 'general-tab') {
-                const sysName = document.getElementById('setting_systemName').value;
-                const lang = document.getElementById('setting_language').value;
-                const tz = document.getElementById('setting_timezone').value;
-                
-                await appStore.updateSettings({
-                    system_name: sysName,
-                    default_lang: lang,
-                    timezone: tz
-                });
-            } else {
-                const formHeader = this.closest('.settings-form-card').querySelector('.form-header h2').textContent;
-                if (typeof showToast !== 'undefined') showToast(formHeader + ' ayarları mock olarak kaydedildi!', 'info');
-                else alert(formHeader + ' ayarları mock olarak kaydedildi!');
-            }
+            await appStore.updateSettings({
+                system_name: sysName,
+                default_lang: lang,
+                timezone: tz
+            });
         });
-    });
+    }
+
+    const scanSaveBtn = document.getElementById('scanTabSaveBtn');
+    if (scanSaveBtn) {
+        scanSaveBtn.addEventListener('click', async function () {
+            const scanFreq = parseInt(document.getElementById('scanFrequency').value) || 60;
+            const secLevel = document.getElementById('securityLevel').value || 'Normal';
+            const autoScan = document.getElementById('autoScanToggle').checked ? 1 : 0;
+            
+            await appStore.updateSettings({
+                scan_frequency: scanFreq,
+                security_level: secLevel,
+                auto_scan_enabled: autoScan
+            });
+        });
+    }
 
     // Populate live settings via appStore
     document.addEventListener('DOMContentLoaded', () => {
@@ -400,9 +362,9 @@
                     }
 
                     // General tab bindings
-                    const sysNameInput = document.getElementById('setting_systemName');
-                    const langSelect = document.getElementById('setting_language');
-                    const tzSelect = document.getElementById('setting_timezone');
+                    const sysNameInput = document.getElementById('sysName');
+                    const langSelect = document.getElementById('sysLang');
+                    const tzSelect = document.getElementById('sysTimezone');
 
                     if (sysNameInput && state.settings.system_name && document.activeElement !== sysNameInput) {
                         sysNameInput.value = state.settings.system_name;
@@ -472,21 +434,90 @@
         }
     };
 
-    // İptal butonları
+    // API INTEGRATIONS LOGIC
+    const providers = [
+        { id: 'fortinet', name: 'Fortinet', icon: 'fa-shield', color: '#00D1FF' },
+        { id: 'cisco', name: 'Cisco', icon: 'fa-network-wired', color: '#00E676' },
+        { id: 'aws', name: 'AWS Cloud', icon: 'fa-cloud', color: '#FFB74D' }
+    ];
 
-    // Şimdi yedekle
-    document.querySelectorAll('.save-btn .fa-play').forEach(btn => {
-        btn?.closest('button').addEventListener('click', function () {
-            alert('Manuel yedekleme başlatılıyor...');
-        });
-    });
+    async function loadIntegrations() {
+        try {
+            const res = await fetch('/api/integrations');
+            const keys = await res.json();
+            
+            const container = document.getElementById('integrationsContainer');
+            if(!container) return;
+            container.innerHTML = providers.map(p => {
+                const existing = keys.find(k => k.provider === p.id);
+                const statusClass = existing ? 'active' : 'inactive';
+                const statusText = existing ? 'Aktif' : 'Pasif';
+                const inputVal = existing ? '••••••••••••••••' : '';
+                const readonly = existing ? 'readonly style="opacity:0.6;"' : '';
+                const btnLabel = existing ? '<i class="fas fa-trash"></i> Sil' : '<i class="fas fa-plus"></i> Ekle';
+                const actionFn = existing ? `deleteIntegration('${p.id}')` : `saveIntegration('${p.id}', 'api_${p.id}')`;
+                
+                return `
+                <div class="api-key-group">
+                    <div class="api-header">
+                        <span class="api-name"><i class="fas ${p.icon}" style="color: ${p.color};"></i> ${p.name}</span>
+                        <span class="api-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="api-key-input">
+                        <input type="password" id="api_${p.id}" value="${inputVal}" ${readonly} placeholder="${p.name} API Key..." autocomplete="off">
+                        <button class="api-btn" onclick="${actionFn}">${btnLabel}</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch(e) {}
+    }
+    
+    async function saveIntegration(provider, inputId) {
+        const key = document.getElementById(inputId).value;
+        if(!key) { alert('Key boş olamaz'); return;}
+        try {
+            const res = await fetch('/api/integrations', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({provider, api_key: key})
+            });
+            if(res.ok) { alert(provider + ' entegre edildi.'); loadIntegrations(); }
+        } catch(e) {}
+    }
+    
+    async function deleteIntegration(provider) {
+        if(!confirm(provider + " entegrasyonu silinecek, emin misiniz?")) return;
+        try {
+            const res = await fetch('/api/integrations/' + provider, { method: 'DELETE' });
+            if(res.ok) { alert(provider + ' bağlantısı kesildi.'); loadIntegrations(); }
+        } catch(e) {}
+    }
 
-    // Geri yükle
-    document.querySelectorAll('.cancel-btn .fa-undo').forEach(btn => {
-        btn?.closest('button').addEventListener('click', function () {
-            alert('Sistem geri yükleme sihirbazı açılıyor...');
-        });
-    });
-</script>
+    // BACKUP LOGIC
+    async function triggerBackup() {
+        const btn = document.getElementById('btnTriggerBackup');
+        const statusDiv = document.getElementById('backupListStatus');
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Yedekleniyor...';
+        btn.disabled = true;
+        
+        try {
+            const res = await fetch('/api/system/backup', { method: 'POST' });
+            const dat = await res.json();
+            if(res.ok) {
+                alert('Yedekleme başarılı!');
+                statusDiv.innerHTML = `<div style="padding: 15px; color: #00E676; border: 1px dashed #00E676; border-radius: 8px;">
+                    <i class="fas fa-check-circle"></i> Son Yedekleme: ${dat.file} (Şimdi)
+                </div>`;
+            } else {
+                alert('Yedekleme hatası: ' + dat.error);
+            }
+        } catch(e) { alert('Yedekleme sırasında ağ hatası'); }
+        
+        btn.innerHTML = '<i class="fas fa-play"></i> Şimdi Yedekle';
+        btn.disabled = false;
+    }
+
+    // Initialize Integration tab when its displayed
+    document.querySelector('.settings-menu-item[data-tab="integrations"]')?.addEventListener('click', loadIntegrations);
 </script>
 {% endblock %}

@@ -188,6 +188,9 @@
     let deviceChart;
     let riskChart;
     let trafficMiniChart;
+    // mainTrafficChart is window-scoped so the store subscriber can access it
+    // regardless of when window.addEventListener('load') fires.
+    window.mainTrafficChart = null;
 
     // ── 1. State subscriber: Device KPIs + Threat level + Charts ─────────────
     appStore.subscribe((state) => {
@@ -356,7 +359,7 @@
         // Main 24H area chart — initialise with empty data; store will fill it
         const ctxMain = document.getElementById('mainTrafficChart');
         if (ctxMain) {
-            mainTrafficChart = new Chart(ctxMain.getContext('2d'), {
+            window.mainTrafficChart = new Chart(ctxMain.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`),

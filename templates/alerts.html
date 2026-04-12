@@ -266,15 +266,19 @@
                     </div>
                 </div>
 
-                <!-- İstatistik -->
+                <!-- İstatistik - Dinamik API Verileri -->
                 <div style="margin-top: 20px; padding: 16px; background: #0B0E14; border-radius: 16px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
                         <span>Bugün gelen bildirim</span>
-                        <span style="color: #00D1FF; font-weight: 600;">47</span>
+                        <span id="statTodayCount" style="color: #00D1FF; font-weight: 600;">-</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span>Çözümlenen</span>
+                        <span id="statResolvedCount" style="color: #00E676;">-</span>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
-                        <span>Çözümlenen</span>
-                        <span style="color: #00E676;">32</span>
+                        <span>Aktif / Kritik</span>
+                        <span id="statActiveCount" style="color: #FF4B5C;">-</span>
                     </div>
                 </div>
             </div>
@@ -295,8 +299,34 @@
 
             renderAlerts(alerts);
             updateAlertSummary(alerts);
+            await updateSidePanelStats();
         } catch (err) {
             console.error("Alert verisi çekilemedi:", err);
+        }
+    }
+
+    async function updateSidePanelStats() {
+        try {
+            // Today's total
+            const todayRes  = await fetch('/api/alerts?today=true');
+            const todayData = todayRes.ok ? await todayRes.json() : [];
+            const todayEl = document.getElementById('statTodayCount');
+            if (todayEl) todayEl.textContent = todayData.length;
+
+            // Resolved
+            const resolvedRes  = await fetch('/api/alerts?status=resolved');
+            const resolvedData = resolvedRes.ok ? await resolvedRes.json() : [];
+            const resolvedEl = document.getElementById('statResolvedCount');
+            if (resolvedEl) resolvedEl.textContent = resolvedData.length;
+
+            // Active critical
+            const activeRes  = await fetch('/api/alerts?status=active');
+            const activeData = activeRes.ok ? await activeRes.json() : [];
+            const criticalCount = activeData.filter(a => a.severity === 'critical').length;
+            const activeEl = document.getElementById('statActiveCount');
+            if (activeEl) activeEl.textContent = `${activeData.length} / ${criticalCount} kritik`;
+        } catch(e) {
+            console.warn('[Alerts] Side panel stats failed:', e);
         }
     }
 
@@ -308,7 +338,15 @@
             const card = document.createElement('div');
             card.className = `alert-card ${alert.severity}`;
             card.dataset.severity = alert.severity;
-            card.dataset.category = 'security'; // Backend currently mostly security
+            card.dataset.category = 'security';
+            if (alert.id) card.dataset.alertId = alert.id;  // expose DB id for resolve
+
+            // Dim already-resolved alerts
+            const isResolved = alert.status === 'resolved';
+            if (isResolved) {
+                card.style.opacity = '0.4';
+                card.style.filter = 'grayscale(0.6)';
+            }
 
             const icon = alert.severity === 'critical' ? 'shield-alt' : (alert.severity === 'warning' ? 'lock' : 'info-circle');
             const titleEmoji = alert.severity === 'critical' ? '🚨' : (alert.severity === 'warning' ? '⚠️' : 'ℹ️');
@@ -328,14 +366,14 @@
                 </div>
                 <div class="alert-meta">
                     <span><i class="fas fa-laptop"></i> Cihaz: ${alert.hostname} (${alert.ip_address})</span>
-                    <span><i class="fas fa-tag"></i> Durum: ${alert.status}</span>
+                    <span><i class="fas fa-tag"></i> Durum: <strong style="color:${isResolved ? '#00E676' : '#FFB74D'}">${isResolved ? 'RESOLVED' : (alert.status || 'active').toUpperCase()}</strong></span>
                 </div>
                 <div class="alert-actions">
                     <button class="alert-action-btn primary"><i class="fas fa-search"></i> Detaya Git</button>
                     <button class="alert-action-btn pivot-btn" data-device-id="${alert.device_id}">
                         <i class="fas fa-project-diagram"></i> HARİTADA GÖR
                     </button>
-                    <button class="alert-action-btn"><i class="fas fa-check"></i> Çözüldü</button>
+                    ${!isResolved ? `<button class="alert-action-btn"><i class="fas fa-check"></i> Çözüldü</button>` : ''}
                     <button class="alert-action-btn"><i class="fas fa-times"></i> Göz ardı et</button>
                 </div>
             `;
@@ -404,28 +442,45 @@
     });
 
     // Bildirim aksiyonları (delegation used for dynamic elements)
-    document.getElementById('feedList').addEventListener('click', function (e) {
+    document.getElementById('feedList').addEventListener('click', async function (e) {
         const btn = e.target.closest('.alert-action-btn');
         if (!btn) return;
 
-        const action = btn.textContent.trim();
         const card = btn.closest('.alert-card');
-        const title = card.querySelector('.alert-title').textContent;
+        const title = card?.querySelector('.alert-title')?.textContent || '';
+        const alertId = card?.dataset.alertId;
 
-        if (action.includes('Detaya Git')) {
-            alert(`${title} detayları görüntüleniyor...`);
-        } else if (action.includes('HARİTADA GÖR')) {
+        if (btn.textContent.trim().includes('Detaya Git')) {
+            alert(`${title} detayları görüntülenüyor...`);
+        } else if (btn.classList.contains('pivot-btn')) {
             const deviceId = btn.dataset.deviceId;
-            if (deviceId) {
-                window.location.href = `/topology?focus=${deviceId}`;
-            } else {
-                alert('Cihaz kimliği bulunamadı.');
+            if (deviceId) window.location.href = `/topology?focus=${deviceId}`;
+            else alert('Cihaz kimliği bulunamadı.');
+        } else if (btn.textContent.trim().includes('Çözüldü')) {
+            if (!alertId) {
+                // Fallback: just dim the card (MEMORY_ALERT or no id)
+                card.style.opacity = '0.5';
+                btn.disabled = true;
+                return;
             }
-        } else if (action.includes('Çözüldü')) {
-            card.style.opacity = '0.5';
-            btn.disabled = true;
-            alert('Bildirim çözüldü olarak işaretlendi.');
-        } else if (action.includes('Göz ardı et')) {
+            try {
+                const res = await fetch(`/api/alerts/${alertId}/resolve`, { method: 'PATCH' });
+                if (res.ok) {
+                    card.style.transition = 'opacity 0.4s, transform 0.4s';
+                    card.style.opacity = '0.35';
+                    card.style.transform = 'scale(0.98)';
+                    btn.disabled = true;
+                    btn.textContent = '✓ Çözümlendi';
+                    // Refresh side-panel counters
+                    await updateSidePanelStats();
+                    if (typeof showToast === 'function') showToast('Bildirim çözümlendi ve kaydedildi.', 'success');
+                } else {
+                    alert('Sunucu hatası: bildirim durumu güncellenemedi.');
+                }
+            } catch(err) {
+                console.error('Resolve failed:', err);
+            }
+        } else if (btn.textContent.trim().includes('Göz ardı et')) {
             if (confirm('Bu bildirimi göz ardı etmek istediğinizden emin misiniz?')) {
                 card.remove();
             }
@@ -458,6 +513,5 @@
     // İlk yükleme ve periyodik güncelleme
     fetchAlerts();
     setInterval(fetchAlerts, 5000);
-</script>
 </script>
 {% endblock %}

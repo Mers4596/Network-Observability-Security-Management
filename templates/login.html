@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nebula Net - Secure Login</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        body {
+            background-color: var(--bg-obsidian);
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            background-image: 
+                radial-gradient(circle at 50% -20%, rgba(0, 242, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 50% 120%, rgba(0, 242, 255, 0.1) 0%, transparent 40%);
+        }
+        
+        .login-card {
+            background: rgba(11, 14, 20, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+            opacity: 0.7;
+        }
+
+        .logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 35px;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--neon-cyan);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 28px;
+            color: var(--bg-obsidian);
+            box-shadow: 0 0 25px var(--neon-cyan-glow);
+            letter-spacing: -1px;
+        }
+
+        .logo-text {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+
+        .logo-text span {
+            color: var(--neon-cyan);
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .input-group i {
+            position: absolute;
+            top: 15px;
+            left: 16px;
+            color: var(--text-muted);
+            font-size: 16px;
+            transition: color 0.3s;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05); /* Slightly brighter background */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff; /* Explicitly white color */
+            padding: 14px 16px 14px 45px;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .input-group input:focus {
+            border-color: var(--neon-cyan);
+            background: rgba(0, 242, 255, 0.05);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.15);
+        }
+
+        .input-group input:focus + i {
+            color: var(--neon-cyan);
+        }
+
+        .btn-login {
+            width: 100%;
+            background: var(--neon-cyan);
+            color: var(--bg-obsidian);
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px var(--neon-cyan-glow);
+            margin-top: 10px;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(0, 242, 255, 0.6);
+            background: #fff;
+        }
+
+        .flash-msg {
+            color: #FF4B5C;
+            font-size: 14px;
+            margin-bottom: 20px;
+            background: rgba(255, 75, 92, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 75, 92, 0.3);
+            display: none;
+        }
+
+        .auth-footer {
+            margin-top: 30px;
+            font-size: 13px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="logo">
+            <div class="logo-icon">N</div>
+            <div class="logo-text">NEBULA<span>.IO</span></div>
+            <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Secure Gateway Access</p>
+        </div>
+
+        <div class="flash-msg" id="errorMsg"></div>
+
+        <form id="loginForm">
+            <div class="input-group">
+                <input type="text" id="username" placeholder="Username" required autocomplete="username">
+                <i class="fas fa-user"></i>
+            </div>
+            
+            <div class="input-group">
+                <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+                <i class="fas fa-lock"></i>
+            </div>
+
+            <button type="submit" class="btn-login" id="loginBtn">Authenticate <i class="fas fa-arrow-right" style="margin-left:5px;"></i></button>
+        </form>
+
+        <div class="auth-footer">
+            <i class="fas fa-shield-alt"></i> End-to-end Encrypted Session
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+            const err = document.getElementById('errorMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verifying...';
+            err.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, password: p})
+                });
+
+                if (res.ok) {
+                    window.location.href = '/';
+                } else {
+                    const data = await res.json();
+                    err.textContent = data.error || 'Authentication Failed';
+                    err.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerHTML = 'Authenticate <i class="fas fa-arrow-right" style="margin-left:5px;"></i>';
+                }
+            } catch(e) {
+                err.textContent = 'Network error connecting to auth server.';
+                err.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = 'Authenticate <i class="fas fa-arrow-right" style="margin-left:5px;"></i>';
+            }
+        });
+    </script>
+</body>
+</html>

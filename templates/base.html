@@ -101,7 +101,11 @@
                         <span class="badge">3</span>
                     </div>
                     <div class="user-profile">
-                        <span>ME</span>
+                        <span title="{{ session.get('username', 'Admin') }}">ME</span>
+                    </div>
+                    <!-- Logout action -->
+                    <div class="logout-btn" onclick="appLogout()" style="margin-left: 15px; cursor: pointer; color: var(--text-muted); font-size: 18px;" title="Çıkış Yap">
+                        <i class="fas fa-sign-out-alt"></i>
                     </div>
                 </div>
             </div>
@@ -161,6 +165,14 @@
         }());
     </script>
 
+    <script>
+        async function appLogout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch(e) { console.error('Logout failed'); }
+        }
+    </script>
     {% block scripts %}
     {% endblock %}
 
