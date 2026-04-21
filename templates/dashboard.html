@@ -83,7 +83,7 @@
         <div class="card-value" id="dashboardTrafficLoad"
             style="font-size: 32px; font-weight: 700; margin-bottom: 10px;"></div>
         <div class="card-detail">
-            <div style="color: #00e676; font-size: 12px; font-weight: 600; margin-bottom: 4px;">↑ 12% VOLATILITY</div>
+            <div id="volatilityBadge" style="color: #00e676; font-size: 12px; font-weight: 600; margin-bottom: 4px;">↑ 12% VOLATILITY</div>
             <canvas class="mini-chart" id="trafficChart"></canvas>
         </div>
     </div>
@@ -95,8 +95,13 @@
             <i class="fas fa-shield-virus"></i> RISK MAGNITUDE
         </div>
         <div class="threat-level" style="margin-bottom: 15px;" id="threatLevelContainer">
-            <span class="status-pill pill-critical" id="threatLabel"
-                style="font-size: 18px; padding: 10px 20px;">-</span>
+            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
+                <div id="threatProgressBar" style="width: 0%; height: 100%; background: var(--neon-cyan); transition: width 1s ease, background 1s ease; box-shadow: 0 0 10px var(--neon-cyan);"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600;">
+                <span id="threatLabelText" style="color: var(--neon-cyan); letter-spacing: 1px;">NOMINAL</span>
+                <span id="threatScoreText" style="color: white;">0 / 100</span>
+            </div>
         </div>
         <div class="card-detail">
             <span id="activeThreatsCount"
@@ -117,7 +122,7 @@
             <span style="color: var(--neon-cyan);"><i class="fas fa-check-circle"></i></span>
         </div>
         <div class="card-detail" style="margin-top: 15px;">
-            <span style="font-size: 11px; color: var(--text-muted); letter-spacing: 1px;">ALL SUB-SYSTEMS NOMINAL</span>
+            <span id="subsystemStatus" style="font-size: 11px; color: var(--text-muted); letter-spacing: 1px;">ALL SUB-SYSTEMS NOMINAL</span>
         </div>
     </div>
 </div>
@@ -128,7 +133,7 @@
     <div class="glass-card main-chart-card">
         <div class="card-header" style="margin-bottom: 24px; display: flex; justify-content: space-between;">
             <span style="font-size: 14px; letter-spacing: 1px;"><i class="fas fa-shield-virus"
-                    style="color: var(--critical-red); margin-right: 10px;"></i> RISK TRENDS (24H ANALYTICS)</span>
+                    style="color: var(--critical-red); margin-right: 10px;"></i> RISK TRENDS (LAST 60 MINS)</span>
             <div style="display: flex; gap: 15px; font-size: 10px;">
                 <span style="color: var(--critical-red);"><i class="fas fa-circle"></i> CRITICAL</span>
                 <span style="color: var(--warning-orange);"><i class="fas fa-circle"></i> HIGH</span>
@@ -150,6 +155,35 @@
             <div style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px;">
                 <i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Loading traffic data...
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Live Data Grid -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
+    <!-- Live 60S Network Traffic -->
+    <div class="glass-card">
+        <div class="card-header" style="margin-bottom: 24px; display: flex; justify-content: space-between;">
+            <span style="font-size: 14px; letter-spacing: 1px;"><i class="fas fa-wave-square"
+                    style="color: var(--neon-cyan); margin-right: 10px;"></i> LIVE BANDWIDTH MONITOR (60S) <span class="pulse-active" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--neon-cyan); margin-left:10px;"></span></span>
+            <div style="display: flex; gap: 15px; font-size: 10px;">
+                <span style="color: #00f2ff;"><i class="fas fa-circle"></i> DOWNLOAD</span>
+                <span style="color: #f39c12;"><i class="fas fa-circle"></i> UPLOAD</span>
+            </div>
+        </div>
+        <div class="chart-container" style="height: 200px;">
+            <canvas id="mainTrafficChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Live Packet Stream Terminal -->
+    <div class="glass-card" style="padding: 0; display: flex; flex-direction: column; overflow: hidden; height: 280px;">
+        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-glass);">
+            <span style="font-size: 14px; letter-spacing: 1px;"><i class="fas fa-terminal"
+                    style="color: #00e676; margin-right: 10px;"></i> LIVE PACKET STREAM</span>
+        </div>
+        <div id="livePacketTerminal" style="padding: 15px; background: rgba(0,0,0,0.5); flex-grow: 1; overflow-y: hidden; display: flex; flex-direction: column-reverse; gap: 6px; font-family: 'Courier New', monospace; font-size: 11px; color: #00e676; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
+            <div id="terminalPlaceholder" style="color: var(--text-muted); text-align: center; margin-bottom: auto; margin-top: auto;">Awaiting live network feed...</div>
         </div>
     </div>
 </div>
@@ -219,10 +253,45 @@
                 ? `${primaryThreats} Primary / ${impactedThreats} Impacted`
                 : '0 Active Threats';
 
-        const label = document.getElementById('threatLabel');
-        if (totalThreats === 0) { label.className = 'status-pill pill-online'; label.textContent = 'NOMINAL'; }
-        else if (totalThreats < 3) { label.className = 'status-pill pill-warning'; label.textContent = 'ELEVATED'; }
-        else { label.className = 'status-pill pill-critical'; label.textContent = 'CRITICAL'; }
+        const score = totalThreats === 0 ? 0 : Math.min(100, 20 + (totalThreats * 15));
+        
+        const bar = document.getElementById('threatProgressBar');
+        const labelText = document.getElementById('threatLabelText');
+        const scoreText = document.getElementById('threatScoreText');
+        
+        if (bar && labelText && scoreText) {
+            bar.style.width = `${score}%`;
+            scoreText.textContent = `${score} / 100`;
+            
+            if (totalThreats === 0) {
+                bar.style.background = 'var(--neon-cyan)';
+                bar.style.boxShadow = '0 0 10px var(--neon-cyan)';
+                labelText.style.color = 'var(--neon-cyan)';
+                labelText.textContent = 'NOMINAL';
+            } else if (totalThreats < 3) {
+                bar.style.background = 'var(--warning-orange)';
+                bar.style.boxShadow = '0 0 10px var(--warning-orange)';
+                labelText.style.color = 'var(--warning-orange)';
+                labelText.textContent = 'ELEVATED';
+            } else {
+                bar.style.background = 'var(--critical-red)';
+                bar.style.boxShadow = '0 0 10px var(--critical-red)';
+                labelText.style.color = 'var(--critical-red)';
+                labelText.textContent = 'CRITICAL';
+            }
+        }
+
+        // Subsystem status text (SYSTEM HEARTBEAT card)
+        const nominalEl = document.getElementById('subsystemStatus');
+        if (nominalEl) {
+            if (totalThreats > 0) {
+                nominalEl.textContent = `${totalThreats} ACTIVE THREAT(S) DETECTED`;
+                nominalEl.style.color = 'var(--critical-red)';
+            } else {
+                nominalEl.textContent = 'ALL SUB-SYSTEMS NOMINAL';
+                nominalEl.style.color = 'var(--text-muted)';
+            }
+        }
 
         // Heartbeat: last_seen
         if (devices.length > 0) {
@@ -253,7 +322,7 @@
             trafficLoad.innerHTML =
                 `${parts[0]} <span style="font-size:14px;color:var(--text-muted);">${parts[1] || 'Mbps'}</span>`;
         }
-        const volEl = document.querySelector('.card-detail > div[style*="color: #00e676"]');
+        const volEl = document.getElementById('volatilityBadge');
         if (volEl && stats.volatility_label) {
             const sign = (stats.network_volatility || 0) >= 0 ? '↑' : '↓';
             const color = (stats.network_volatility || 0) >= 0 ? '#00e676' : '#ff4b2b';
@@ -261,19 +330,9 @@
             volEl.textContent = `${sign} ${stats.volatility_label}`;
         }
 
-        // ── 3. Traffic Volatility area chart (from /api/traffic-timeline) ────
-        const timeline = state.trafficTimeline;
-        if (timeline && timeline.length > 0 && mainTrafficChart) {
-            const labels = timeline.map(r => r.hour);
-            const dlData = timeline.map(r => Math.round(r.bytes_out / 1000));  // → KB
-            const ulData = timeline.map(r => Math.round(r.bytes_in / 1000));
-
-            mainTrafficChart.data.labels = labels;
-            mainTrafficChart.data.datasets[0].data = dlData;
-            mainTrafficChart.data.datasets[1].data = ulData;
-            mainTrafficChart.update('none');   // instant, no animation
-        }
-
+        // ── 3. Traffic Volatility area chart (OBSOLETE 24H logic replaced by Live Socket) ────
+        // Live chart updates are completely detached from full state renders
+        // to provide maximum frame rate and smooth UX.
         // ── 4. Top Talkers cards (from /api/top-talkers) ─────────────────────
         const talkers = state.topTalkers || [];
         const talkersEl = document.getElementById('topTalkersContainer');
@@ -303,6 +362,19 @@
         } else if (talkersEl && talkers.length === 0) {
             talkersEl.innerHTML =
                 '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px;">No traffic data yet...</div>';
+        }
+
+        // ── 5. Traffic Mini Sparkline (NETWORK LOAD mini chart) ──────────────────
+        const timeline2 = state.trafficTimeline;
+        if (timeline2 && timeline2.length > 0 && trafficMiniChart) {
+            const nonZero = timeline2.filter(r => r.bytes_out > 0 || r.bytes_in > 0);
+            const last6 = nonZero.length >= 6 ? nonZero.slice(-6) : timeline2.slice(-6);
+            if (last6.length > 0) {
+                const sparkData = last6.map(r => Math.round((r.bytes_out + r.bytes_in) / 1000));
+                trafficMiniChart.data.datasets[0].data = sparkData;
+                trafficMiniChart.data.labels = last6.map(r => r.hour);
+                trafficMiniChart.update('none');
+            }
         }
     });
 
@@ -356,23 +428,27 @@
             });
         }
 
-        // Main 24H area chart — initialise with empty data; store will fill it
+        // Main 60S area chart — initialised with 60 zeroes
+        // Main 60S area chart — initialised from store history for persistence
         const ctxMain = document.getElementById('mainTrafficChart');
         if (ctxMain) {
+            const liveDataDL = [...appStore.state.liveBandwidth.dl];
+            const liveDataUL = [...appStore.state.liveBandwidth.ul];
+            const liveLabels = [...appStore.state.liveBandwidth.labels];
             window.mainTrafficChart = new Chart(ctxMain.getContext('2d'), {
                 type: 'line',
                 data: {
-                    labels: Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`),
+                    labels: liveLabels,
                     datasets: [
                         {
                             label: t('chart_download') || 'Download',
-                            data: new Array(24).fill(0),
+                            data: liveDataDL,
                             borderColor: '#00f2ff', backgroundColor: 'rgba(0,242,255,0.05)',
                             fill: true, tension: 0.4, pointRadius: 0
                         },
                         {
                             label: t('chart_upload') || 'Upload',
-                            data: new Array(24).fill(0),
+                            data: liveDataUL,
                             borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.02)',
                             fill: true, tension: 0.4, pointRadius: 0
                         }
@@ -398,10 +474,11 @@
                             }
                         },
                         y: {
-                            grid: { color: 'rgba(255,255,255,0.02)' },
+                            min: 0,
+                            grid: { color: 'rgba(255,255,255,0.04)' },
                             ticks: {
                                 color: 'rgba(255,255,255,0.3)', font: { size: 9 },
-                                callback: v => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v
+                                callback: v => v >= 1 ? `${v.toFixed(1)} MB` : v > 0 ? `${(v * 1000).toFixed(0)} KB` : '0'
                             }
                         }
                     }
@@ -519,6 +596,68 @@
         toast.classList.add('active');
         setTimeout(() => toast.classList.remove('active'), 5000);
     }
+
+    // ── Initial Render for Terminal Persistence ───────────────────────────────
+    function renderTerminalLogs(packets) {
+        const terminal = document.getElementById('livePacketTerminal');
+        if (!terminal) return;
+
+        const placeholder = document.getElementById('terminalPlaceholder');
+        if (placeholder) placeholder.remove();
+
+        packets.forEach(p => {
+            const el = document.createElement('div');
+            const totalSize = (p.bytes_sent + p.bytes_received) || 0;
+            const mB = (totalSize / 1000).toFixed(1);
+            const riskColor = p.risk_score > 50 ? 'var(--critical-red)' : (p.risk_score > 20 ? 'var(--warning-orange)' : '#00e676');
+            
+            el.innerHTML = `> <span style="opacity:0.6;">[${p.protocol}]</span> ${p.hostname} <i class="fas fa-long-arrow-alt-right"></i> ${p.dest_ip}:${p.dest_port} <span style="opacity:0.6;">(${p.app_protocol})</span> <span style="color:${riskColor}; float:right;">${mB} KB</span>`;
+            
+            terminal.prepend(el);
+
+            if (terminal.childElementCount > 50) {
+                terminal.lastElementChild.remove();
+            }
+        });
+    }
+
+    window.addEventListener('load', () => {
+        // Render history if available
+        if (appStore.state.liveTerminal && appStore.state.liveTerminal.length > 0) {
+            // Need to append in reverse order so the newest acts like it was prepended last
+            const history = [...appStore.state.liveTerminal].reverse();
+            renderTerminalLogs(history);
+        }
+    });
+
+    // ── Real-Time Traffic Monitor & Terminal ──────────────────────────────────
+    document.addEventListener('live_traffic_update', function (e) {
+        const payload = e.detail; // { packets: Array, live_bps: Number }
+
+        // 1. Update 60S Bandwidth Chart
+        if (window.mainTrafficChart) {
+            const chartData = window.mainTrafficChart.data;
+            const liveTotalMB = (payload.live_bps / 8) / 1_000_000;
+            
+            // Artificial split for visual appeal (Download / Upload est.)
+            const estDl = liveTotalMB * 0.7;
+            const estUl = liveTotalMB * 0.3;
+
+            chartData.labels.push('');
+            chartData.labels.shift();
+
+            chartData.datasets[0].data.push(estDl);
+            chartData.datasets[0].data.shift();
+
+            chartData.datasets[1].data.push(estUl);
+            chartData.datasets[1].data.shift();
+
+            window.mainTrafficChart.update('none'); // Update fast, tension ensures curve looks smooth enough
+        }
+
+        // 2. Update Live Packet Terminal
+        renderTerminalLogs(payload.packets);
+    });
 
     // ── Language change: update chart labels (Stubbed as chart is now generic) ─────
     document.addEventListener('languagechange', function (e) {

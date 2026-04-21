@@ -264,15 +264,17 @@
 <script>
     let devices = [];
     let activeDeviceId = null;
+    let currentPage = 1;
+    const itemsPerPage = 10;
 
-    // Subscribe to state changes so local devices array stays in sync
+    // Subscribe to state changes so local devices array stays in sync for KPIs
     appStore.subscribe((state) => {
-        devices = state.devices;
         updateKPIs(state.devices);
-        filterTable();
+        handleDeepLink(state.devices);
+    });
 
-        // Handle URL Deep-link only once or if devices change
-        handleDeepLink();
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchPage(1);
     });
 
     // KPI Kartlarını güncelle (Dinamik state filter)
@@ -320,19 +322,19 @@
 
     // Deep Link Logic: Handle /assets?id=dev-xxx
     let deepLinkHandled = false;
-    function handleDeepLink() {
-        if (deepLinkHandled || devices.length === 0) return;
+    function handleDeepLink(allDevices) {
+        if (deepLinkHandled || !allDevices || allDevices.length === 0) return;
         
         const params = new URLSearchParams(window.location.search);
         const targetId = params.get('id');
         
         if (targetId) {
             console.log("[DeepLink] Targeting device:", targetId);
-            const device = devices.find(d => d.id === targetId);
+            const device = allDevices.find(d => d.id === targetId);
             if (device) {
                 // 1. Filter the table to this device
                 document.getElementById('nameFilter').value = device.hostname;
-                filterTable();
+                fetchPage(1);
                 
                 // 2. Open Detail Drawer
                 openDrawer(device.id);
@@ -405,8 +407,6 @@
             `;
             tbody.appendChild(row);
         });
-
-        document.getElementById('pageInfo').textContent = `1-${filteredDevices.length} / ${devices.length}`;
     }
 
     // Side Drawer Logic
@@ -612,42 +612,50 @@
         filterTable();
     }
 
+    async function fetchPage(page) {
+        currentPage = page;
+        const typeFilter = document.getElementById('typeFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const nameFilter = document.getElementById('nameFilter').value;
+
+        const url = `/api/devices/paged?page=${page}&limit=${itemsPerPage}&type=${encodeURIComponent(typeFilter)}&status=${encodeURIComponent(statusFilter)}&search=${encodeURIComponent(nameFilter)}`;
+
+        try {
+            const res = await fetch(url);
+            const resData = await res.json();
+            
+            devices = resData.data; // update local devices array for drawers
+            
+            if (devices.length === 0) {
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 24px; margin-bottom: 10px; display: block; opacity: 0.3;"></i>
+                    Seçilen kritere uygun cihaz bulunamadı
+                </td></tr>`;
+                document.getElementById('pageInfo').textContent = `0-0 / ${resData.total}`;
+                document.getElementById('prevPage').disabled = true;
+                document.getElementById('nextPage').disabled = true;
+            } else {
+                renderTable(devices);
+                
+                const start = (page - 1) * itemsPerPage + 1;
+                const end = Math.min(page * itemsPerPage, resData.total);
+                document.getElementById('pageInfo').textContent = `${start}-${end} / ${resData.total}`;
+                
+                document.getElementById('prevPage').disabled = page === 1;
+                document.getElementById('nextPage').disabled = end >= resData.total;
+                
+                document.getElementById('prevPage').onclick = () => fetchPage(currentPage - 1);
+                document.getElementById('nextPage').onclick = () => fetchPage(currentPage + 1);
+            }
+        } catch (e) {
+            console.error('Pagination fetch error', e);
+        }
+    }
+
     // Filtreleme
     function filterTable() {
-        const typeFilter = document.getElementById('typeFilter').value.toLowerCase();
-        const statusFilter = document.getElementById('statusFilter').value.toLowerCase();
-        const nameFilter = document.getElementById('nameFilter').value.toLowerCase();
-
-        const filtered = devices.filter(device => {
-            // Case-insensitive Type Match
-            if (typeFilter !== 'all' && device.type.toLowerCase() !== typeFilter) return false;
-            
-            // Case-insensitive Status Match
-            if (statusFilter !== 'all' && device.status.toLowerCase() !== statusFilter) return false;
-            
-            // Multi-criteria Keyword Match (Name, IP, MAC, Dept)
-            if (nameFilter) {
-                const searchStr = (
-                    (device.hostname || '') + ' ' + 
-                    (device.ip_address || '') + ' ' + 
-                    (device.mac_address || '') + ' ' + 
-                    (device.department || '')
-                ).toLowerCase();
-                if (!searchStr.includes(nameFilter)) return false;
-            }
-            return true;
-        });
-
-        if (filtered.length === 0) {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
-                <i class="fas fa-search" style="font-size: 24px; margin-bottom: 10px; display: block; opacity: 0.3;"></i>
-                Seçilen kritere uygun cihaz bulunamadı
-            </td></tr>`;
-            document.getElementById('pageInfo').textContent = `0-0 / ${devices.length}`;
-        } else {
-            renderTable(filtered);
-        }
+        fetchPage(1);
     }
 
     // Sıralama
@@ -674,7 +682,7 @@
         document.getElementById('typeFilter').value = 'all';
         document.getElementById('statusFilter').value = 'all';
         document.getElementById('nameFilter').value = '';
-        renderTable();
+        fetchPage(1);
     }
 
     // Filtre eventleri

@@ -184,7 +184,7 @@
         </div>
         <div class="heatmap-calendar">
             <div class="heatmap-header">
-                <span style="font-size: 13px;">Mart 2026</span>
+                <span id="heatmapMonthLabel" style="font-size: 13px;">Mart 2026</span>
                 <div class="heatmap-days">
                     <span>Pt</span><span>Sa</span><span>Ça</span><span>Pe</span><span>Cu</span><span>Ct</span><span>Pz</span>
                 </div>
@@ -311,6 +311,9 @@
 
     let protocolChart = null;
 
+    // ── Connection count tracking for trendConns delta ─────────────────────
+    let _prevConnCount = null;
+
     function initTrafficPage() {
         console.log('[Traffic] Initializing data binding...');
 
@@ -326,6 +329,12 @@
 
         // FORCE immediate sync to avoid "0 bps" lag
         appStore.loadData();
+
+        // Update heatmap month header to current month/year
+        const monthLabel = document.getElementById('heatmapMonthLabel');
+        if (monthLabel) {
+            monthLabel.textContent = new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+        }
     }
 
     function updateGlobalHeader(logs) {
@@ -374,6 +383,39 @@
         if (trendULDiv) {
             trendULDiv.className = ulTrend >= 0 ? 'kpi-trend trend-up' : 'kpi-trend trend-down';
             trendULDiv.innerHTML = `<i class="fas fa-arrow-${ulTrend >= 0 ? 'up' : 'down'}"></i> ${appStore.formatBandwidth(Math.abs(ulTrend))}`;
+        }
+
+        // Active connections trend — compare against previous snapshot
+        const trendConnsParent = document.getElementById('trendConns')?.parentElement;
+        if (trendConnsParent) {
+            const connCount = stats.active_connections_count || 0;
+
+            if (_prevConnCount === null) {
+                // First render: no prior value to compare, show neutral
+                trendConnsParent.className = 'kpi-trend';
+                trendConnsParent.style.color = '#A0A6B0';
+                trendConnsParent.innerHTML =
+                    `<i class="fas fa-link" style="margin-right:4px;"></i> ${connCount.toLocaleString()} bağlantı`;
+            } else {
+                const delta   = connCount - _prevConnCount;
+                const isUp    = delta >= 0;
+                const pct     = _prevConnCount > 0
+                    ? Math.abs(Math.round((delta / _prevConnCount) * 100))
+                    : 0;
+                const arrow   = isUp ? 'up'   : 'down';
+                const color   = isUp ? '#FF4B5C' : '#00E676'; // more conns = higher load (red), fewer = green
+                const sign    = isUp ? '+' : '-';
+
+                trendConnsParent.className = isUp ? 'kpi-trend trend-up' : 'kpi-trend trend-down';
+                trendConnsParent.style.color = color;
+                trendConnsParent.innerHTML = `
+                    <i class="fas fa-arrow-${arrow}" style="margin-right:4px;"></i>
+                    ${connCount.toLocaleString()} bağlantı
+                    <span style="font-size:10px; opacity:0.75; margin-left:4px;">(${sign}${pct}%)</span>
+                `;
+            }
+
+            _prevConnCount = connCount;
         }
     }
 
@@ -468,14 +510,46 @@
         });
         const topDests = Object.entries(destGroups).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
+        /**
+         * Resolve the best-fit Font Awesome icon class for a given hostname.
+         * Checks for common keyword patterns in any order within the name.
+         * Fallback is a generic network node icon.
+         */
+        function resolveDestIcon(name) {
+            const n = (name || '').toLowerCase();
+            if (/\bdb\b|database|mysql|postgres|mongo|redis|sql/.test(n))   return 'fa-database';
+            if (/\bweb\b|http|nginx|apache|frontend|cdn/.test(n))           return 'fa-globe';
+            if (/\bcloud\b|aws|azure|gcp|s3|blob|bucket/.test(n))          return 'fa-cloud';
+            if (/\bsrv\b|server|backend|api|svc/.test(n))                   return 'fa-server';
+            if (/\brouter\b|gateway|gw|fw|firewall|edge/.test(n))           return 'fa-network-wired';
+            if (/\bmail\b|smtp|imap|mx\./.test(n))                         return 'fa-envelope';
+            if (/\bvpn\b|tunnel|proxy/.test(n))                             return 'fa-shield-alt';
+            if (/\bstorage\b|nas|san|disk|backup/.test(n))                  return 'fa-hdd';
+            // IP-only fallback
+            if (/^\d{1,3}(\.\d{1,3}){3}$/.test(n))                        return 'fa-desktop';
+            return 'fa-server'; // generic default
+        }
+
         const rightNodes = document.querySelectorAll('.sankey-right .sankey-node');
         rightNodes.forEach((node, i) => {
             if (i >= topDests.length) return;
             const [name, vol] = topDests[i];
+
+            // Update bandwidth label
             const valDiv = node.querySelector('div');
             if (valDiv) valDiv.textContent = appStore.formatBandwidth(vol);
-            const label = node.querySelector('i')?.nextSibling;
-            if (label) label.textContent = ` ${name.split('-')[0] || name}`;
+
+            // Update display name (short label, first segment before '-')
+            const shortName = name.split('-')[0] || name;
+            const textNode = node.querySelector('i')?.nextSibling;
+            if (textNode) textNode.textContent = ` ${shortName}`;
+
+            // Dynamically swap icon class based on hostname keywords
+            const iconEl = node.querySelector('i');
+            if (iconEl) {
+                // Strip all existing fa-* icon classes, keep base 'fas'
+                iconEl.className = 'fas ' + resolveDestIcon(name);
+            }
         });
 
         // 3. Volume-driven flow line thickness

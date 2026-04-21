@@ -1,204 +1,491 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nebula Net - Secure Login</title>
+    <title>Nebula Net | Secure Access</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <style>
+        :root {
+            --neon-cyan: #00f2ff;
+            --neon-purple: #b026ff;
+            --neon-pink: #ff26a5;
+            --bg-obsidian: #050508;
+            --glass-bg: rgba(15, 15, 25, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-light: #ffffff;
+            --text-muted: #8e9bb0;
+            --error-red: #ff2a5f;
+            --success-green: #00e676;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             background-color: var(--bg-obsidian);
             color: var(--text-light);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: 'Outfit', sans-serif;
-            background-image: 
-                radial-gradient(circle at 50% -20%, rgba(0, 242, 255, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 50% 120%, rgba(0, 242, 255, 0.1) 0%, transparent 40%);
+            overflow: hidden;
+            position: relative;
         }
-        
-        .login-card {
-            background: rgba(11, 14, 20, 0.85);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border-glass);
+
+        /* Cosmic Animated Background */
+        .cosmic-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            background: #030305;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: float 20s infinite ease-in-out alternate;
+        }
+
+        .orb-1 {
+            width: 500px; height: 500px;
+            background: var(--neon-purple);
+            top: -100px; left: -100px;
+        }
+
+        .orb-2 {
+            width: 400px; height: 400px;
+            background: var(--neon-cyan);
+            bottom: -50px; right: -50px;
+            animation-delay: -5s;
+        }
+
+        .orb-3 {
+            width: 300px; height: 300px;
+            background: var(--neon-pink);
+            top: 40%; left: 60%;
+            animation-delay: -10s;
+            opacity: 0.3;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(50px, 50px) scale(1.1); }
+        }
+
+        /* Container & Panels */
+        .auth-container {
+            position: relative;
+            width: 100%;
+            max-width: 440px;
+            perspective: 1000px;
+            margin: 20px;
+        }
+
+        .auth-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
             border-radius: 24px;
             padding: 40px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
-            text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
             position: relative;
-            overflow: hidden;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease;
+            transform-style: preserve-3d;
         }
 
-        .login-card::before {
+        .auth-card::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0; height: 3px;
-            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
-            opacity: 0.7;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-purple), var(--neon-cyan), transparent);
+            border-radius: 24px 24px 0 0;
+            opacity: 0.8;
         }
 
-        .logo {
-            display: flex;
+        .panel {
+            display: none;
             flex-direction: column;
-            align-items: center;
-            margin-bottom: 35px;
-            gap: 15px;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .panel.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Branding */
+        .logo-box {
+            text-align: center;
+            margin-bottom: 30px;
         }
 
         .logo-icon {
-            width: 60px;
-            height: 60px;
-            background: var(--neon-cyan);
+            width: 56px; height: 56px;
+            background: linear-gradient(135deg, var(--neon-purple), var(--neon-cyan));
             border-radius: 16px;
-            display: flex;
-            align-items: center;
+            display: inline-flex;
             justify-content: center;
+            align-items: center;
+            font-size: 24px;
             font-weight: 700;
-            font-size: 28px;
-            color: var(--bg-obsidian);
-            box-shadow: 0 0 25px var(--neon-cyan-glow);
-            letter-spacing: -1px;
+            color: #fff;
+            margin-bottom: 12px;
+            box-shadow: 0 10px 20px rgba(176, 38, 255, 0.3);
         }
 
         .logo-text {
-            font-size: 26px;
+            font-size: 24px;
             font-weight: 700;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
         }
 
         .logo-text span {
-            color: var(--neon-cyan);
+            background: linear-gradient(to right, var(--neon-cyan), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
+        .logo-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        /* Form Elements */
         .input-group {
             position: relative;
-            margin-bottom: 25px;
-            text-align: left;
+            margin-bottom: 20px;
         }
 
         .input-group i {
             position: absolute;
-            top: 15px;
-            left: 16px;
+            top: 16px; left: 18px;
             color: var(--text-muted);
+            font-size: 15px;
+            transition: all 0.3s ease;
+            z-index: 2;
+        }
+
+        .input-field {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px 15px 15px 48px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            outline: none;
+            position: relative;
+            z-index: 1;
+        }
+
+        .input-field::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .input-field:focus {
+            background: rgba(0, 242, 255, 0.03);
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 15px rgba(176, 38, 255, 0.2);
+            color: #fff;
+        }
+
+        .input-field:focus + i {
+            color: var(--neon-purple);
+        }
+        
+        .input-field:-webkit-autofill,
+        .input-field:-webkit-autofill:hover, 
+        .input-field:-webkit-autofill:focus, 
+        .input-field:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #0c0e15 inset !important;
+            -webkit-text-fill-color: white !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        /* Password Strength */
+        .pwd-strength {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: -10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .pwd-strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: all 0.3s ease;
+        }
+
+        .pwd-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: right;
+            margin-top: 4px;
+            display: none;
+            margin-bottom: 15px;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--neon-purple), var(--neon-pink));
+            color: #fff;
+            font-family: inherit;
             font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(176, 38, 255, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 25px rgba(255, 38, 165, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-cyan {
+            background: linear-gradient(135deg, var(--neon-cyan), #0088cc);
+            box-shadow: 0 10px 20px rgba(0, 242, 255, 0.2);
+        }
+        
+        .btn-cyan:hover {
+            box-shadow: 0 15px 25px rgba(0, 242, 255, 0.3);
+        }
+
+        /* Toggles */
+        .auth-switch {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .auth-switch span {
+            color: var(--neon-cyan);
+            font-weight: 600;
+            cursor: pointer;
             transition: color 0.3s;
         }
 
-        .input-group input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.05); /* Slightly brighter background */
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ffffff; /* Explicitly white color */
-            padding: 14px 16px 14px 45px;
-            border-radius: 12px;
-            font-family: inherit;
-            font-size: 15px;
-            outline: none;
-            transition: all 0.3s ease;
-            box-sizing: border-box;
+        .auth-switch span:hover {
+            color: #fff;
+            text-shadow: 0 0 10px var(--neon-cyan);
         }
 
-        .input-group input:focus {
-            border-color: var(--neon-cyan);
-            background: rgba(0, 242, 255, 0.05);
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.15);
-        }
-
-        .input-group input:focus + i {
-            color: var(--neon-cyan);
-        }
-
-        .btn-login {
-            width: 100%;
-            background: var(--neon-cyan);
-            color: var(--bg-obsidian);
-            border: none;
-            padding: 15px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            box-shadow: 0 0 15px var(--neon-cyan-glow);
-            margin-top: 10px;
-        }
-
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0 25px rgba(0, 242, 255, 0.6);
-            background: #fff;
-        }
-
+        /* Messages */
         .flash-msg {
-            color: #FF4B5C;
-            font-size: 14px;
-            margin-bottom: 20px;
-            background: rgba(255, 75, 92, 0.1);
-            padding: 10px;
+            padding: 12px 15px;
             border-radius: 8px;
-            border: 1px solid rgba(255, 75, 92, 0.3);
+            font-size: 13px;
+            margin-bottom: 20px;
             display: none;
+            align-items: center;
+            gap: 10px;
         }
 
-        .auth-footer {
-            margin-top: 30px;
-            font-size: 13px;
-            color: var(--text-muted);
-            letter-spacing: 0.5px;
+        .flash-error {
+            background: rgba(255, 42, 95, 0.1);
+            border: 1px solid rgba(255, 42, 95, 0.3);
+            color: var(--error-red);
         }
+        
+        .flash-success {
+            background: rgba(0, 230, 118, 0.1);
+            border: 1px solid rgba(0, 230, 118, 0.3);
+            color: var(--success-green);
+        }
+
+        .security-badge {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 1px;
+        }
+        .security-badge i { color: var(--success-green); }
+
     </style>
 </head>
 <body>
 
-    <div class="login-card">
-        <div class="logo">
-            <div class="logo-icon">N</div>
-            <div class="logo-text">NEBULA<span>.IO</span></div>
-            <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Secure Gateway Access</p>
-        </div>
+    <!-- Space Background -->
+    <div class="cosmic-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
 
-        <div class="flash-msg" id="errorMsg"></div>
+    <div class="auth-container">
+        <div class="auth-card">
+            
+            <!-- Branding -->
+            <div class="logo-box">
+                <div class="logo-icon"><i class="fas fa-satellite-dish"></i></div>
+                <div class="logo-text">NEBULA<span>.IO</span></div>
+                <div class="logo-subtitle">Secure Gateway Endpoint</div>
+            </div>
 
-        <form id="loginForm">
-            <div class="input-group">
-                <input type="text" id="username" placeholder="Username" required autocomplete="username">
-                <i class="fas fa-user"></i>
+            <!-- LOGIN PANEL -->
+            <div id="loginPanel" class="panel active">
+                <div class="flash-msg flash-error" id="loginError">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="loginErrorText"></span>
+                </div>
+
+                <form id="loginForm">
+                    <div class="input-group">
+                        <input type="text" id="l_username" class="input-field" placeholder="Username" required>
+                        <i class="fas fa-user-astronaut"></i>
+                    </div>
+                    
+                    <div class="input-group">
+                        <input type="password" id="l_password" class="input-field" placeholder="Password" required>
+                        <i class="fas fa-fingerprint"></i>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="loginBtn">
+                        Initiate Uplink <i class="fas fa-rocket"></i>
+                    </button>
+                </form>
+
+                <div class="auth-switch">
+                    Yeni operatör müsünüz? <span onclick="switchPanel('register')">Yetki Talep Et</span>
+                </div>
+            </div>
+
+            <!-- REGISTER PANEL -->
+            <div id="registerPanel" class="panel">
+                <div class="flash-msg flash-error" id="regError">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="regErrorText"></span>
+                </div>
+                <div class="flash-msg flash-success" id="regSuccess">
+                    <i class="fas fa-check-circle"></i>
+                    <span id="regSuccessText"></span>
+                </div>
+
+                <form id="registerForm">
+                    <div class="input-group">
+                        <input type="text" id="r_username" class="input-field" placeholder="Choose Callsign (Username)" required autocomplete="off">
+                        <i class="fas fa-id-badge"></i>
+                    </div>
+
+                    <div class="input-group">
+                        <input type="email" id="r_email" class="input-field" placeholder="Comm Link (Email)" required autocomplete="off">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <input type="password" id="r_password" class="input-field" placeholder="Secure Passcode" required autocomplete="new-password">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    
+                    <div class="pwd-strength" id="pwdStrengthCon">
+                        <div class="pwd-strength-bar" id="pwdBar"></div>
+                    </div>
+                    <div class="pwd-label" id="pwdLabel">Too weak</div>
+
+                    <button type="submit" class="btn-primary btn-cyan" id="regBtn">
+                        Establish Identity <i class="fas fa-user-shield"></i>
+                    </button>
+                </form>
+
+                <div class="auth-switch">
+                    Zaten yetkiniz var mı? <span onclick="switchPanel('login')">Ağa Bağlan</span>
+                </div>
+            </div>
+
+            <!-- Global Footer -->
+            <div class="security-badge">
+                <i class="fas fa-shield" style="color: var(--success-green);"></i> 256-BIT ENCRYPTED TUNNEL
             </div>
             
-            <div class="input-group">
-                <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
-                <i class="fas fa-lock"></i>
-            </div>
-
-            <button type="submit" class="btn-login" id="loginBtn">Authenticate <i class="fas fa-arrow-right" style="margin-left:5px;"></i></button>
-        </form>
-
-        <div class="auth-footer">
-            <i class="fas fa-shield-alt"></i> End-to-end Encrypted Session
         </div>
     </div>
 
     <script>
+        // Panel Switcher
+        function switchPanel(panel) {
+            document.getElementById('loginPanel').classList.remove('active');
+            document.getElementById('registerPanel').classList.remove('active');
+            
+            // UI Resets
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('regError').style.display = 'none';
+            document.getElementById('regSuccess').style.display = 'none';
+            document.getElementById('loginForm').reset();
+            document.getElementById('registerForm').reset();
+            document.getElementById('pwdStrengthCon').style.display = 'none';
+            document.getElementById('pwdLabel').style.display = 'none';
+            
+            if(panel === 'login') {
+                document.getElementById('loginPanel').classList.add('active');
+            } else {
+                document.getElementById('registerPanel').classList.add('active');
+            }
+        }
+
+        // Animated Loader
+        function toggleBtnLoad(btn, isLoad, originalText) {
+            if(isLoad) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        // Login Logic
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
+            const u = document.getElementById('l_username').value.trim();
+            const p = document.getElementById('l_password').value;
             const btn = document.getElementById('loginBtn');
-            const err = document.getElementById('errorMsg');
+            const errBox = document.getElementById('loginError');
+            const errTxt = document.getElementById('loginErrorText');
 
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verifying...';
-            err.style.display = 'none';
+            errBox.style.display = 'none';
+            toggleBtnLoad(btn, true);
 
             try {
                 const res = await fetch('/api/login', {
@@ -208,21 +495,113 @@
                 });
 
                 if (res.ok) {
-                    window.location.href = '/';
+                    btn.innerHTML = '<i class="fas fa-check"></i> Connected';
+                    btn.style.background = '#00e676';
+                    setTimeout(() => window.location.href = '/', 500);
                 } else {
                     const data = await res.json();
-                    err.textContent = data.error || 'Authentication Failed';
-                    err.style.display = 'block';
-                    btn.disabled = false;
-                    btn.innerHTML = 'Authenticate <i class="fas fa-arrow-right" style="margin-left:5px;"></i>';
+                    errTxt.textContent = data.error || 'Authentication Failed';
+                    errBox.style.display = 'flex';
+                    toggleBtnLoad(btn, false, 'Initiate Uplink <i class="fas fa-rocket"></i>');
                 }
-            } catch(e) {
-                err.textContent = 'Network error connecting to auth server.';
-                err.style.display = 'block';
-                btn.disabled = false;
-                btn.innerHTML = 'Authenticate <i class="fas fa-arrow-right" style="margin-left:5px;"></i>';
+            } catch(ex) {
+                errTxt.textContent = 'Server connection lost.';
+                errBox.style.display = 'flex';
+                toggleBtnLoad(btn, false, 'Initiate Uplink <i class="fas fa-rocket"></i>');
             }
         });
+
+        // Register Logic & Password Strength
+        const reqPwd = document.getElementById('r_password');
+        const pwdBar = document.getElementById('pwdBar');
+        const pwdCon = document.getElementById('pwdStrengthCon');
+        const pwdLbl = document.getElementById('pwdLabel');
+
+        reqPwd.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if(val.length === 0) {
+                pwdCon.style.display = 'none';
+                pwdLbl.style.display = 'none';
+                return;
+            }
+            
+            pwdCon.style.display = 'block';
+            pwdLbl.style.display = 'block';
+            
+            let strength = 0;
+            if(val.length >= 6) strength += 33;
+            if(val.match(/[A-Z]/) || val.match(/[0-9]/)) strength += 33;
+            if(val.match(/[^A-Za-z0-9]/) && val.length > 7) strength += 34;
+
+            pwdBar.style.width = strength + '%';
+            
+            if(strength <= 33) {
+                pwdBar.style.background = '#ff2a5f';
+                pwdLbl.textContent = 'Weak';
+                pwdLbl.style.color = '#ff2a5f';
+            } else if(strength <= 66) {
+                pwdBar.style.background = '#ffb74d';
+                pwdLbl.textContent = 'Medium';
+                pwdLbl.style.color = '#ffb74d';
+            } else {
+                pwdBar.style.background = '#00e676';
+                pwdLbl.textContent = 'Strong';
+                pwdLbl.style.color = '#00e676';
+            }
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('r_username').value.trim();
+            const em = document.getElementById('r_email').value.trim();
+            const p = document.getElementById('r_password').value;
+            const btn = document.getElementById('regBtn');
+            const errBox = document.getElementById('regError');
+            const errTxt = document.getElementById('regErrorText');
+            const sucBox = document.getElementById('regSuccess');
+            const sucTxt = document.getElementById('regSuccessText');
+
+            errBox.style.display = 'none';
+            sucBox.style.display = 'none';
+
+            if(p.length < 6) {
+                errTxt.textContent = 'Password must be at least 6 characters.';
+                errBox.style.display = 'flex';
+                return;
+            }
+
+            toggleBtnLoad(btn, true);
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, email: em, password: p})
+                });
+
+                if (res.ok) {
+                    sucTxt.textContent = 'Identity established. Switching to login...';
+                    sucBox.style.display = 'flex';
+                    setTimeout(() => {
+                        switchPanel('login');
+                        document.getElementById('l_username').value = u;
+                        document.getElementById('l_password').focus();
+                    }, 2000);
+                } else {
+                    const data = await res.json();
+                    errTxt.textContent = data.error || 'Registration Failed';
+                    errBox.style.display = 'flex';
+                }
+            } catch(ex) {
+                errTxt.textContent = 'Server connection lost.';
+                errBox.style.display = 'flex';
+            } finally {
+                if(btn.disabled) {
+                    toggleBtnLoad(btn, false, 'Establish Identity <i class="fas fa-user-shield"></i>');
+                }
+            }
+        });
+
     </script>
 </body>
 </html>

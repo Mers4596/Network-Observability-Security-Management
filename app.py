@@ -12,27 +12,74 @@ from flask_socketio import SocketIO, emit
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# ── Database Configuration ───────────────────────────────────────────────────
 app = Flask(__name__)
 app.secret_key = 'nebulanet_secure_session_key_2026'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 socketio = SocketIO(app, cors_allowed_origins="*")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH   = os.path.join(BASE_DIR, 'observability_v2.db')
 
-if os.path.exists(DB_PATH):
-    if not os.access(DB_PATH, os.W_OK):
-        print(f"Warning: {DB_PATH} is not writable. Attempting to fix permissions...")
+# ── Startup: clean stale WAL/SHM files that cause "readonly database" on Windows
+def _clean_stale_wal():
+    """Remove leftover WAL auxiliary files that Windows’ file system sometimes holds
+    as read-only after an unclean shutdown or debug-reloader restart."""
+    for suffix in ('-wal', '-shm'):
+        aux = DB_PATH + suffix
+        if os.path.exists(aux):
+            try:
+                # Try a proper WAL checkpoint first (collapses WAL into the main DB)
+                tmp = sqlite3.connect(DB_PATH, timeout=5)
+                tmp.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+                tmp.close()
+                # If the WAL file is now empty, it’s safe to remove
+                if os.path.getsize(aux) == 0:
+                    os.remove(aux)
+                    print(f"[DB] Removed stale {suffix} file.")
+            except Exception as e:
+                print(f"[DB] WAL cleanup warning ({suffix}): {e}")
+
+    # Ensure the main DB file is writable
+    if os.path.exists(DB_PATH) and not os.access(DB_PATH, os.W_OK):
         try:
             os.chmod(DB_PATH, 0o666)
+            print(f"[DB] Fixed read-only permission on {DB_PATH}")
         except Exception as e:
-            print(f"Error changing permissions: {e}")
+            print(f"[DB] Permission fix failed: {e}")
+
+_clean_stale_wal()
+
+
+def _wal_checkpoint_recovery():
+    """Emergency recovery: force a WAL checkpoint to clear any stale locks."""
+    try:
+        tmp = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
+        tmp.execute('PRAGMA wal_checkpoint(RESTART)')
+        tmp.close()
+        print("[DB] WAL checkpoint RESTART completed (recovery).")
+        return True
+    except Exception as e:
+        print(f"[DB] WAL checkpoint recovery failed: {e}")
+        return False
+
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=30)
+    """Return a connection with WAL mode and sensible concurrency settings.
+    On the first 'readonly' error the caller should invoke _wal_checkpoint_recovery().
+    """
+    conn = sqlite3.connect(
+        DB_PATH,
+        timeout=60,                 # Give WAL writers up to 60 s to finish
+        check_same_thread=False,    # Allow use from background threads
+        isolation_level=None        # Autocommit at driver level; we call conn.commit() manually
+    )
     conn.row_factory = sqlite3.Row
-    # High-Performance Concurrency Settings
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
     conn.execute("PRAGMA foreign_keys=ON;")
+    conn.execute("PRAGMA busy_timeout=30000;")  # 30 s busy-wait instead of immediate error
+    conn.isolation_level = ''        # Re-enable manual transactions after PRAGMA
     return conn
 
 # Threading sync for DB Initialization
@@ -423,8 +470,8 @@ from flask import has_request_context
 def log_user_action(action, target_type, target_id, detail=None, operator='system'):
     """Write every operator write-action to the audit trail."""
     remote_ip = request.remote_addr if has_request_context() else 'internal'
-    
-    max_retries = 3
+
+    max_retries = 5
     for attempt in range(max_retries):
         try:
             conn = get_db_connection()
@@ -438,11 +485,27 @@ def log_user_action(action, target_type, target_id, detail=None, operator='syste
             conn.commit()
             conn.close()
             break
+        except sqlite3.OperationalError as e:
+            err = str(e).lower()
+            if 'readonly' in err:
+                # WAL got stuck — attempt checkpoint recovery once, then retry
+                print(f"[AUDIT] Readonly detected (attempt {attempt+1}), running WAL recovery...")
+                recovered = _wal_checkpoint_recovery()
+                if recovered:
+                    time.sleep(0.3)
+                    continue
+                else:
+                    time.sleep(1.0)
+            elif 'locked' in err:
+                # Transient lock — exponential backoff
+                time.sleep(0.2 * (2 ** attempt))
+            else:
+                print(f"[AUDIT LOG ERROR] Failed after retries: {e}")
+                break
         except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(0.5)
             else:
-                # Audit logging must never crash the main request
                 print(f"[AUDIT LOG ERROR] Failed after retries: {e}")
 
 
@@ -506,13 +569,34 @@ def flush_traffic_buffer():
                         # 2. Autonomous Alerting for Anomalies
                         for item in batch:
                             if item[10] == 1: # anomaly_flag
-                                severity = 'critical' if item[5] > 15000 else 'warning'
-                                hostname = item[12] if len(item) > 12 else 'Unknown Device'
-                                msg = f"High Volume Transfer Detected: {item[4]} flow ({item[5]} bytes) from {hostname}."
+                                # More professional distribution of severity based on risk_score and size
+                                risk = item[9]
+                                size_mb = item[5] / 1_000_000
+                                
+                                if risk >= 90:
+                                    severity = 'critical'
+                                    msg = f"Critical Data Exfiltration: {item[4]} flow ({size_mb:.1f} MB) detected from {item[12]} to {item[1]}."
+                                elif risk >= 60:
+                                    severity = 'warning'
+                                    msg = f"Suspicious Activity: High-volume {item[4]} transfer ({size_mb:.1f} MB) from {item[12]}."
+                                else:
+                                    severity = 'info'
+                                    msg = f"Unusual Traffic Pattern: Elevated {item[4]} usage from {item[12]}."
+
                                 conn.execute('''
                                     INSERT INTO security_alerts (device_id, type, severity, message, timestamp)
                                     VALUES (?, ?, ?, ?, ?)
                                 ''', (item[0], 'Traffic Anomaly', severity, msg, item[11]))
+                                
+                                if severity == 'critical':
+                                    socketio.emit('new_critical_alert', {
+                                        'device_id': item[0],
+                                        'type': 'Traffic Anomaly',
+                                        'severity': 'critical',
+                                        'message': msg,
+                                        'timestamp': item[11],
+                                        'hostname': item[12]
+                                    })
 
                         # 3. Retention Policy Check & Cleanup
                         ret_settings = conn.execute("SELECT retention_days FROM system_settings WHERE id = 1").fetchone()
@@ -523,16 +607,65 @@ def flush_traffic_buffer():
 
                         conn.commit()
                         conn.close()
+                        
+                        # 4. Emit LIVE TRAFFIC payload to WebSockets for connected clients
+                        live_packets = []
+                        total_bytes = 0
+                        for item in batch:
+                            hostname = item[12] if len(item) > 12 else 'Unknown'
+                            # source_id, dest_ip, dest_port, protocol, app_p, bytes_sent, bytes_received, latency, loss, risk_score, a_flag, now_str = item[:12]
+                            total_bytes += (item[5] + item[6])
+                            live_packets.append({
+                                'hostname': hostname,
+                                'dest_ip': item[1],
+                                'dest_port': item[2],
+                                'protocol': item[3],
+                                'app_protocol': item[4],
+                                'bytes_sent': item[5],
+                                'bytes_received': item[6],
+                                'latency': item[7],
+                                'risk_score': item[9]
+                            })
+                            
+                        # calculate rough bps based on last_flush diff or just abstract it
+                        elapsed_secs = max(now - last_flush, 0.1)
+                        live_bps = int((total_bytes * 8) / elapsed_secs)
+                        
+                        socketio.emit('live_traffic_feed', {
+                            'packets': live_packets,
+                            'live_bps': live_bps
+                        })
+                        
                         break
                     except sqlite3.OperationalError as e:
-                        if "locked" in str(e).lower() and attempt < max_retries - 1:
-                            time.sleep(0.2)
+                        err_msg = str(e).lower()
+                        if 'readonly' in err_msg:
+                            print(f"[FLUSHER] Readonly DB detected, attempting WAL recovery...")
+                            try:
+                                conn.close()
+                            except Exception:
+                                pass
+                            _wal_checkpoint_recovery()
+                            time.sleep(1.0)
+                        elif 'locked' in err_msg and attempt < max_retries - 1:
+                            try:
+                                conn.close()
+                            except Exception:
+                                pass
+                            time.sleep(0.5 * (2 ** attempt))  # Exponential backoff
                         else:
                             print(f"[FLUSHER ERROR] {e}")
-                            if 'conn' in locals(): conn.close()
+                            try:
+                                conn.close()
+                            except Exception:
+                                pass
+                            break  # Only continue loop for readonly/locked
                     except Exception as e:
                         print(f"[FLUSHER Error] {e}")
-                        if 'conn' in locals(): conn.close()
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
                         break
             time.sleep(1)
         except Exception as e:
@@ -563,35 +696,40 @@ def simulate_traffic():
                         
                         roll = random.random()
                         protocol = random.choice(['TCP', 'UDP', 'ICMP'])
-                        risk_score = 0
                         
-                        if roll < 0.05: # High Risk
+                        if roll < 0.02: # 2% chance for Severe High Risk
                             dest_port = 445
-                            bytes_sent = random.randint(1000, 5000)
+                            bytes_sent = random.randint(5_000_000, 15_000_000)
                             bytes_received = random.randint(100, 500)
-                            risk_score = 90
-                        elif roll < 0.15: # Medium Risk exfil
+                            risk_score = 95
+                            a_flag = 1
+                        elif roll < 0.10: # 8% chance for Medium Risk Suspicious Behavior
                             dest_port = 443
-                            bytes_sent = random.randint(100000, 500000)
+                            bytes_sent = random.randint(1_000_000, 5_000_000)
                             bytes_received = random.randint(1000, 5000)
-                            risk_score = 60
-                        else: # Normal
-                            dest_port = random.choice([80, 443, 8080, 22, 53, 3000])
-                            bytes_sent = random.randint(5000, 1500000)
-                            bytes_received = random.randint(50000, 500000)
+                            risk_score = 65
+                            a_flag = 1
+                        elif roll < 0.20: # 10% chance for Info level anomaly (Unusual but expected)
+                            dest_port = random.choice([80, 8080])
+                            bytes_sent = random.randint(500_000, 2_000_000)
+                            bytes_received = random.randint(5000, 15000)
+                            risk_score = device['risk_level'] if device['risk_level'] else 25
+                            a_flag = 1
+                        else: # 80% Normal baseline traffic
+                            dest_port = random.choice([443, 22, 53, 3000])
+                            bytes_sent = random.randint(5000, 500_000)
+                            bytes_received = random.randint(50000, 500_000)
                             risk_score = device['risk_level'] if device['risk_level'] else 5
+                            a_flag = 0
 
                         # L7 Application Discovery
                         app_protocols = ['HTTPS', 'SSH', 'DNS', 'SMTP', 'SMB', 'FTP']
                         app_p = random.choice(app_protocols)
                         
                         # Performance metrics
-                        latency = random.randint(10, 150)
-                        loss = round(random.uniform(0.0, 2.0), 2)
+                        latency = random.randint(10, 80)
+                        loss = round(random.uniform(0.0, 0.5), 2)
                         
-                        # Anomaly Threshold Detection
-                        a_flag = 1 if bytes_sent > 8500 else 0
-
                         TRAFFIC_BUFFER.append((
                             source_id, dest_ip, dest_port, protocol, app_p,
                             bytes_sent, bytes_received, latency, loss,
@@ -651,21 +789,36 @@ def summarize_network_health():
             if sleep_time < 0: sleep_time = 60
             time.sleep(sleep_time)
             
+        except sqlite3.OperationalError as e:
+            err_msg = str(e).lower()
+            if 'readonly' in err_msg:
+                print(f"[HEALTH SUMMARIZER] Readonly DB, running WAL recovery...")
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                _wal_checkpoint_recovery()
+                time.sleep(5)
+            else:
+                print(f"[HEALTH SUMMARIZER ERROR] {e}")
+                time.sleep(10)
         except Exception as e:
             print(f"[HEALTH SUMMARIZER ERROR] {e}")
             time.sleep(10)
 
 # Start background pipeline workers
-threading.Thread(target=summarize_network_health, daemon=True, name="Health-Summarizer").start()
-threading.Thread(target=flush_traffic_buffer, daemon=True, name="DB-Flusher").start()
-sim_thread = threading.Thread(target=simulate_traffic, daemon=True, name="Traffic-Sim")
-sim_thread.start()
+# Only run inside the main Werkzeug worker process to prevent DB locked/readonly conflicts
+if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not os.environ.get('FLASK_DEBUG'):
+    threading.Thread(target=summarize_network_health, daemon=True, name="Health-Summarizer").start()
+    threading.Thread(target=flush_traffic_buffer, daemon=True, name="DB-Flusher").start()
+    sim_thread = threading.Thread(target=simulate_traffic, daemon=True, name="Traffic-Sim")
+    sim_thread.start()
 
 # ── Authentication Middleware ─────────────────────────────────────────────
 @app.before_request
 def require_login():
     # Allow static assets and public routes
-    allowed_routes = ['login', 'api_login', 'static']
+    allowed_routes = ['login', 'api_login', 'api_register', 'static']
     if request.endpoint in allowed_routes:
         return
     
@@ -689,7 +842,8 @@ def api_login():
         
     try:
         conn = get_db_connection()
-        user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        # Allow login using either username or email (Case-Insensitive)
+        user = conn.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)", (username, username)).fetchone()
         conn.close()
         
         if user and check_password_hash(user['password_hash'], password):
@@ -707,6 +861,37 @@ def api_login():
 def api_logout():
     session.clear()
     return jsonify({"status": "success"})
+
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    data = request.json
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    
+    if not username or not email or not password:
+        return jsonify({"error": "Missing required fields (username, email, password)"}), 400
+        
+    try:
+        conn = get_db_connection()
+        existing = conn.execute("SELECT id FROM users WHERE username = ? OR email = ?", (username, email)).fetchone()
+        if existing:
+            conn.close()
+            return jsonify({"error": "Username or email already exists"}), 409
+            
+        hashed_pw = generate_password_hash(password)
+        avatar = username[:2].upper()
+        # Default role assigned is "Operator"
+        conn.execute('''
+            INSERT INTO users (username, email, role, password_hash, avatar_initials)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (username, email, 'Operator', hashed_pw, avatar))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": "Account created successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": "Internal server error during registration", "details": str(e)}), 500
 
 
 # ── Integrations & Backup (Phase 3) ───────────────────────────────────────
@@ -806,6 +991,80 @@ def settings():
     return render_template('settings.html')
 
 # --- API Endpoints ---
+
+@app.route('/api/devices/paged', methods=['GET'])
+def get_devices_paged():
+    try:
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 10))
+        offset = (page - 1) * limit
+        
+        type_filter = request.args.get('type', 'all').lower()
+        status_filter = request.args.get('status', 'all').lower()
+        search_filter = request.args.get('search', '').lower()
+        
+        conn = get_db_connection()
+        
+        query = "SELECT * FROM devices WHERE 1=1"
+        params = []
+        
+        if type_filter != 'all':
+            query += " AND LOWER(type) = ?"
+            params.append(type_filter)
+        if status_filter != 'all':
+            query += " AND LOWER(status) = ?"
+            params.append(status_filter)
+        if search_filter:
+            query += " AND (LOWER(hostname) LIKE ? OR LOWER(ip_address) LIKE ? OR LOWER(mac_address) LIKE ? OR LOWER(department) LIKE ?)"
+            search_pattern = f"%{search_filter}%"
+            params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+            
+        count_query = query.replace("SELECT *", "SELECT COUNT(*)")
+        total = conn.execute(count_query, params).fetchone()[0]
+        
+        query += " LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        
+        devices = conn.execute(query, params).fetchall()
+        conn.close()
+        
+        return jsonify({
+            "data": [dict(row) for row in devices],
+            "total": total,
+            "page": page,
+            "limit": limit
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/security-audit/export/csv', methods=['GET'])
+def export_security_audit_csv():
+    import io
+    import csv
+    from flask import Response
+    try:
+        conn = get_db_connection()
+        logs = conn.execute('SELECT * FROM user_action_logs ORDER BY timestamp DESC LIMIT 1000').fetchall()
+        conn.close()
+
+        si = io.StringIO()
+        cw = csv.writer(si)
+        cw.writerow(['ID', 'Operator', 'Action', 'Target Type', 'Target ID', 'Details', 'IP Address', 'Timestamp'])
+        
+        for log in logs:
+            cw.writerow([
+                log['id'], log['operator'], log['action'], log['target_type'],
+                log['target_id'], log['detail'], log['ip_address'], log['timestamp']
+            ])
+
+        output = si.getvalue()
+        return Response(
+            output,
+            mimetype="text/csv",
+            headers={"Content-disposition": "attachment; filename=security_audit_export.csv"}
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/devices', methods=['GET'])
 def get_devices():
@@ -1204,6 +1463,37 @@ def delete_rule(rule_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/rules/<int:rule_id>', methods=['PUT'])
+@audit_logger('UPDATE_RULE', 'FIREWALL')
+def update_rule(rule_id):
+    """Full update of an access rule (edit modal)."""
+    try:
+        data = request.json
+        if not data or not data.get('rule_name'):
+            return jsonify({"error": "rule_name is required"}), 400
+        conn = get_db_connection()
+        conn.execute('''
+            UPDATE access_rules
+            SET rule_name = ?, rule_type = ?, source = ?, destination = ?,
+                protocol = ?, action = ?, status = ?, priority = ?
+            WHERE id = ?
+        ''', (
+            data.get('rule_name'),
+            data.get('rule_type', 'Firewall'),
+            data.get('source', 'Any'),
+            data.get('destination', 'Any'),
+            data.get('protocol', 'All'),
+            data.get('action', 'Monitor'),
+            data.get('status', 'Enabled'),
+            int(data.get('priority', 99)),
+            rule_id
+        ))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success", "message": "Rule updated successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/rules/<int:rule_id>/schedule', methods=['PATCH'])
 def update_rule_schedule(rule_id):
     try:
@@ -1391,6 +1681,37 @@ def get_safe_zones():
     except Exception as e:
         print(f"API Error at /api/safe-zones: {e}")
         return jsonify([])
+
+@app.route('/api/safe-zones', methods=['POST'])
+@audit_logger('ADD_ZONE', 'NETWORK')
+def add_safe_zone():
+    """Add a new trusted network segment."""
+    try:
+        data = request.json
+        name     = data.get('name', '').strip()
+        ip_range = data.get('ip_range', '').strip()
+        if not name or not ip_range:
+            return jsonify({"error": "Both name and ip_range are required"}), 400
+        conn = get_db_connection()
+        conn.execute('INSERT INTO safe_zones (name, ip_range) VALUES (?, ?)', (name, ip_range))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success", "message": f"Zone '{name}' created"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/safe-zones/<int:zone_id>', methods=['DELETE'])
+@audit_logger('DELETE_ZONE', 'NETWORK')
+def delete_safe_zone(zone_id):
+    """Remove a trusted network zone."""
+    try:
+        conn = get_db_connection()
+        conn.execute('DELETE FROM safe_zones WHERE id = ?', (zone_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/scans', methods=['GET'])
 def get_scans():
@@ -1619,38 +1940,42 @@ def get_ai_context():
 @app.route('/api/analytics/risk-history', methods=['GET'])
 def get_risk_history():
     """
-    Returns aggregated Hourly Risk Counts for the last 24 hours.
+    Returns aggregated Minute Risk Counts for the last 60 minutes.
     Categories: Critical, High (Warning), Medium (Info).
     """
     try:
         conn = get_db_connection()
-        # We query security_alerts for specific severity levels over time
         rows = conn.execute('''
             SELECT 
-                strftime('%H:00', timestamp) AS hour,
+                strftime('%H:%M', timestamp) AS time_slot,
                 SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) AS critical_count,
                 SUM(CASE WHEN severity = 'warning' THEN 1 ELSE 0 END) AS high_count,
                 SUM(CASE WHEN severity = 'info' THEN 1 ELSE 0 END) AS medium_count
             FROM security_alerts
-            WHERE timestamp >= datetime('now', '-24 hours')
-            GROUP BY hour
-            ORDER BY hour ASC
+            WHERE timestamp >= datetime('now', '-60 minutes')
+            GROUP BY time_slot
+            ORDER BY time_slot ASC
         ''').fetchall()
         conn.close()
 
-        # Build zero-filled timeline
-        # Since 'now' varies, we'll generate the last 24 slots relative to the current hour
-        current_hour = datetime.now().hour
+        # Build zero-filled timeline for the last 60 minutes
         history = []
-        for i in range(24):
-            h = (current_hour - 23 + i) % 24
-            hour_str = f"{h:02d}:00"
-            match = next((dict(r) for r in rows if r['hour'] == hour_str), None)
+        now = datetime.now()
+        for i in range(59, -1, -1):
+            target_time = now - timedelta(minutes=i)
+            time_str = target_time.strftime('%H:%M')
+            match = next((dict(r) for r in rows if r['time_slot'] == time_str), None)
+            
             if match:
-                history.append(match)
+                history.append({
+                    "hour": time_str, # keep key as 'hour' for frontend compatibility
+                    "critical_count": match['critical_count'],
+                    "high_count": match['high_count'],
+                    "medium_count": match['medium_count']
+                })
             else:
                 history.append({
-                    "hour": hour_str,
+                    "hour": time_str,
                     "critical_count": 0,
                     "high_count": 0,
                     "medium_count": 0

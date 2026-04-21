@@ -18,7 +18,10 @@ const appStore = {
         topology: [],
         safe_zones: [],
         settings: {},
-        riskHistory: []
+        riskHistory: [],
+        // Live data persistence
+        liveBandwidth: { dl: new Array(60).fill(0), ul: new Array(60).fill(0), labels: new Array(60).fill('') },
+        liveTerminal: []
     },
 
     // ── 2. Observer Pattern ───────────────────────────────────────────────────
@@ -72,7 +75,7 @@ const appStore = {
                 if (res.status === 'fulfilled' && res.value.ok) {
                     const data = await res.value.json();
                     if (key === 'safe_zones') {
-                        this.state.safe_zones = data.map(z => z.ip_range);
+                        this.state.safe_zones = data; // keep full objects {id, name, ip_range}
                     } else if (key === 'settings') {
                         this.state.settings = data.governance || {};
                         this.state.users = data.users || [];
@@ -197,6 +200,22 @@ const appStore = {
         } catch (err) { showToast('Network error while deleting rule', 'error'); }
     },
 
+    async updateRule(ruleId, ruleData) {
+        try {
+            const res = await fetch(`/api/rules/${ruleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ruleData)
+            });
+            if (res.ok) {
+                showToast('Rule updated successfully', 'success');
+                await this.loadData();
+            } else {
+                showToast('Failed to update rule', 'error');
+            }
+        } catch (err) { showToast('Network error while updating rule', 'error'); }
+    },
+
     async updateSettings(settingsData) {
         try {
             // Need to preserve existing settings to send full patch payload
@@ -225,6 +244,35 @@ const appStore = {
             });
             if (res.ok) await this.loadData();
         } catch (err) { console.error('Update schedule failed:', err); }
+    },
+
+    async addSafeZone(name, ip_range) {
+        try {
+            const res = await fetch('/api/safe-zones', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, ip_range })
+            });
+            if (res.ok) {
+                showToast(`Zone '${name}' added`, 'success');
+                await this.loadData();
+            } else {
+                const d = await res.json();
+                showToast(d.error || 'Failed to add zone', 'error');
+            }
+        } catch (err) { showToast('Network error', 'error'); }
+    },
+
+    async deleteSafeZone(zoneId) {
+        try {
+            const res = await fetch(`/api/safe-zones/${zoneId}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('Zone removed', 'success');
+                await this.loadData();
+            } else {
+                showToast('Failed to remove zone', 'error');
+            }
+        } catch (err) { showToast('Network error', 'error'); }
     },
 
     // ── User Management Helpers ──────────────────────────────────────────────
@@ -324,13 +372,6 @@ window.refreshUI = function (state) {
         }).join('');
     }
 
-    // 2.1 Dashboard traffic KPI
-    const trafficLoad = document.getElementById('dashboardTrafficLoad');
-    if (trafficLoad && state.dashboardStats?.download_rate) {
-        const [value, unit = 'Mbps'] = state.dashboardStats.download_rate.split(' ');
-        trafficLoad.innerHTML = `${value} <span style="font-size:14px;">${unit}</span>`;
-    }
-
     // 3. Access Control rules
     const ruleList = document.getElementById('ruleList');
     const ruleCount = document.getElementById('activeRuleCount');
@@ -338,11 +379,13 @@ window.refreshUI = function (state) {
 
     if (ruleList) {
         if (!state.accessRules || state.accessRules.length === 0) {
-            ruleList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;">No Data Found</div>';
+            ruleList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;">Kural bulunamadı</div>';
         } else {
             ruleList.innerHTML = state.accessRules.map(rule => {
                 const actionUpper = (rule.action || 'Monitor').toUpperCase();
                 const badgeClass = actionUpper === 'ALLOW' ? 'allow' : (actionUpper === 'BLOCK' ? 'deny' : 'monitor');
+                // Encode rule object for inline onclick
+                const ruleJson = encodeURIComponent(JSON.stringify(rule));
                 return `
                     <div class="rule-item" draggable="true" data-priority="${rule.priority || 99}">
                         <div class="rule-header">
@@ -355,8 +398,12 @@ window.refreshUI = function (state) {
                         </div>
                         <div class="rule-footer">
                             <div class="rule-actions">
-                                <button class="rule-btn" onclick="appStore.deleteRule(${rule.id})" style="color:#FF4B5C;"><i class="fas fa-trash"></i></button>
-                                <button class="rule-btn"><i class="fas fa-edit"></i></button>
+                                <button class="rule-btn" onclick="appStore.deleteRule(${rule.id})" style="color:#FF4B5C;" title="Kuralı Sil">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <button class="rule-btn" onclick="openRuleModal(JSON.parse(decodeURIComponent('${ruleJson}')))" title="Kuralı Düzenle" style="color:var(--neon-cyan);">
+                                    <i class="fas fa-edit"></i>
+                                </button>
                             </div>
                             <label class="switch rule-toggle">
                                 <input type="checkbox" ${rule.status === 'Enabled' ? 'checked' : ''} onchange="appStore.toggleRule(${rule.id})">
@@ -379,6 +426,42 @@ appStore.initSocket = function () {
 
     socket.on('connect', () => {
         console.log('[appStore] WebSocket Connected');
+    });
+
+    socket.on('live_traffic_feed', (data) => {
+        // Calculate estimated bandwidth
+        const liveTotalMB = (data.live_bps / 8) / 1_000_000;
+        const estDl = liveTotalMB * 0.7;
+        const estUl = liveTotalMB * 0.3;
+
+        // Shift and push data for bandwidth persistence
+        appStore.state.liveBandwidth.labels.shift();
+        appStore.state.liveBandwidth.labels.push('');
+        
+        appStore.state.liveBandwidth.dl.shift();
+        appStore.state.liveBandwidth.dl.push(estDl);
+        
+        appStore.state.liveBandwidth.ul.shift();
+        appStore.state.liveBandwidth.ul.push(estUl);
+
+        // Keep terminal memory limited to 50
+        if (data.packets && data.packets.length > 0) {
+            data.packets.forEach(p => {
+                appStore.state.liveTerminal.unshift(p);
+            });
+
+            if (appStore.state.liveTerminal.length > 50) {
+                appStore.state.liveTerminal.length = 50;
+            }
+        }
+
+        // Persist dynamically added live bounds across page transitions
+        sessionStorage.setItem('nebula_store_cache', JSON.stringify(appStore.state));
+
+        // Dispatch high-frequency live traffic directly to UI components
+        // Avoids triggering full state re-renders for every packet batch
+        const event = new CustomEvent('live_traffic_update', { detail: data });
+        document.dispatchEvent(event);
     });
 
     socket.on('new_critical_alert', (newAlert) => {
